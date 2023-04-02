@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 _CVAR_PATTERNS = (
     # "sv_maxclients" is:"16^7" default:"8^7"
-    # latched: "12"
+    # latched: "12"  # noqa: ERA001
     re.compile(
         r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
         r'"(?P<value>.*?)(\^7)?"\s+default:\s*'
@@ -21,7 +21,7 @@ _CVAR_PATTERNS = (
         re.IGNORECASE | re.MULTILINE,
     ),
     # "g_maxGameClients" is:"0^7", the default
-    # latched: "1"
+    # latched: "1"  # noqa: ERA001
     re.compile(
         r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
         r'"(?P<default>(?P<value>.*?))(\^7)?",\s+the\sdefault$',
