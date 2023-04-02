@@ -43,5 +43,11 @@ class Game(BaseModel):
     time_limit: int | None = None
 
 
+class Cvar(BaseModel):
+    name: str
+    value: str
+    default: str | None = None
+
+
 class Client(BaseModel):
     id: str

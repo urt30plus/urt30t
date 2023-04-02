@@ -1,14 +1,38 @@
 import asyncio
 import logging
+import re
 from types import TracebackType
 from typing import Self
 
 import asyncio_dgram
 from asyncio_dgram.aio import DatagramClient
 
-from . import settings
+from . import game, settings
 
 logger = logging.getLogger(__name__)
+
+_CVAR_PATTERNS = (
+    # "sv_maxclients" is:"16^7" default:"8^7"
+    # latched: "12"
+    re.compile(
+        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
+        r'"(?P<value>.*?)(\^7)?"\s+default:\s*'
+        r'"(?P<default>.*?)(\^7)?"$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    # "g_maxGameClients" is:"0^7", the default
+    # latched: "1"
+    re.compile(
+        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
+        r'"(?P<default>(?P<value>.*?))(\^7)?",\s+the\sdefault$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    # "mapname" is:"ut4_abbey^7"
+    re.compile(
+        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*"(?P<value>.*?)(\^7)?"$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+)
 
 
 class RconError(Exception):
@@ -74,6 +98,25 @@ class RconClient:
             await asyncio.sleep(self.read_timeout * i + 1)
 
         raise RconNoDataError(cmd)
+
+    async def cvar(self, name: str) -> game.Cvar | None:
+        data = await self.send(name)
+        for pat in _CVAR_PATTERNS:
+            if m := pat.match(data):
+                break
+        else:
+            return None
+
+        if m["cvar"].lower() != name.lower():
+            logger.warning("cvar sent [%s], received [%s]", name, m["cvar"])
+            return None
+
+        try:
+            default = m["default"]
+        except IndexError:
+            default = None
+
+        return game.Cvar(name=name, value=m["value"], default=default)
 
     def _create_rcon_cmd(self, cmd: str) -> bytes:
         return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(
