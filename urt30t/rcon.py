@@ -41,6 +41,7 @@ class RconClient:
 
     async def connect(self) -> DatagramClient:
         if self.stream is None:
+            logger.info("connecting stream to %s:%s", self.host, self.port)
             self.stream = await asyncio_dgram.connect((self.host, self.port))
         return self.stream
 
@@ -69,7 +70,7 @@ class RconClient:
             if data:
                 return data.decode(self.ENCODING)
 
-            logger.warning("RCON %s: no data on try %s", cmd, i)
+            logger.warning("Rcon %s: no data on try %s", cmd, i)
             await asyncio.sleep(self.read_timeout * i + 1)
 
         raise RconNoDataError(cmd)

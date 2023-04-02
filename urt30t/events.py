@@ -1,7 +1,10 @@
 import enum
 import logging
+from typing import Any
 
 from pydantic import BaseModel
+
+from .game import Client
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,13 @@ class EventType(enum.StrEnum):
     vote_failed = "VoteFailed"
     vote_passed = "VotePassed"
     warmup = "Warmup"
+
+
+class Event(BaseModel):
+    type: EventType
+    data: dict[str, Any] | None
+    client: Client | None
+    target: Client | None
 
 
 class LogEvent(BaseModel):
