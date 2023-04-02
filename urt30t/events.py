@@ -82,19 +82,19 @@ def from_log_line(line: str) -> LogEvent:
         except ValueError:
             logger.warning("event type not found: [%s]-[%s]", event_name, data)
             event_type = EventType.unknown
-    elif data.startswith("Bombholder is "):
+    elif event_name.startswith("Bombholder is "):
         event_type = EventType.bomb_holder
-        data = data[14:]
-    elif data.startswith("Bomb was "):
+        data = event_name[14:]
+    elif event_name.startswith("Bomb was "):
         event_type = EventType.bomb
-        data = data[9:]
-    elif data.startswith("Bomb has been "):
+        data = event_name[9:]
+    elif event_name.startswith("Bomb has been "):
         event_type = EventType.bomb
-        data = data[14:]
-    elif data.startswith("Session data initialised for client on slot "):
+        data = event_name[14:]
+    elif event_name.startswith("Session data initialised for client on slot "):
         event_type = EventType.session_data_initialised
-        data = data[44:]
-    elif not data.strip("-"):
+        data = event_name[44:]
+    elif not event_name.strip("-"):
         event_type = EventType.log_separator
         data = None
     else:
