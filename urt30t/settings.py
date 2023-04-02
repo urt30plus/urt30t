@@ -23,11 +23,26 @@ class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
 
 
 class BotSettings(SharedSettings, env_prefix="URT30T_"):
+    name: str = "30+Bot"
+    prefix: str = "^0(^230+Bot^0)^7:"
+    time_format: str = "%I:%M%p %Z %m/%d/%y"
+    time_zone: str = "UTC"
     games_log: Path = Required
+    # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
+    db_url: str = Required
+
+
+class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
+    host: str = "127.0.0.1"
+    port: int = 27960
+    password: str = Required
+    connect_timeout: float = 0.800
+    read_timeout: float = 0.220
 
 
 bot = BotSettings()
 log = LogSettings()
+rcon = RconSettings()
 
 logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logging.getLogger().setLevel(log.level_root)
