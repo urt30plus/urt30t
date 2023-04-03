@@ -33,6 +33,6 @@ async def parse_log_events(log_file: Path) -> None:
                     lines = await fp.readlines()
 
             for line in lines:
-                events.from_log_line(line.strip())
+                events.from_log_line(line)
 
             await asyncio.sleep(0.250)

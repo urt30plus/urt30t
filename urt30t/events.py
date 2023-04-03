@@ -73,15 +73,33 @@ class LogEvent(BaseModel):
 
 
 def from_log_line(line: str) -> LogEvent:
-    data: str | None
-    game_time, _, data = line.partition(" ")
-    event_name, sep, data = data.partition(": ")
+    """Creates a LogEvent from a raw log entry.
+
+    A typical log entry usually starts with the time (MMM:SS) left padded
+    with spaces, the event followed by a colon and then the even data. Ex.
+
+    >>> event = from_log_line("  0:28 Flag: 0 0: team_CTF_blueflag")
+    >>> event.game_time
+    '0:28'
+    >>> event.event_type.name
+    'flag'
+    >>> event.data
+    '0 0: team_CTF_blueflag'
+
+    This function main purpose is to perform a first pass parsing of the data
+    in order to determine basic information about the log entry, such as
+    the type of event.
+    """
+    game_time, _, rest = line.strip().partition(" ")
+    event_name, sep, data = rest.partition(":")
     if sep:
+        data = data.lstrip()
         try:
             event_type = EventType(event_name)
         except ValueError:
             logger.warning("event type not found: [%s]-[%s]", event_name, data)
             event_type = EventType.unknown
+            data = rest
     elif event_name.startswith("Bombholder is "):
         event_type = EventType.bomb_holder
         data = event_name[14:]
@@ -96,7 +114,7 @@ def from_log_line(line: str) -> LogEvent:
         data = event_name[44:]
     elif not event_name.strip("-"):
         event_type = EventType.log_separator
-        data = None
+        data = ""
     else:
         logger.warning("event type not in log line: [%s]", line)
         event_type = EventType.unknown
