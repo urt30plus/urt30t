@@ -1,6 +1,6 @@
 import enum
 import time
-from typing import Any
+from typing import Any, NamedTuple
 
 from pydantic import BaseModel, Field
 
@@ -44,7 +44,7 @@ class Game(BaseModel):
     time_limit: int | None = None
 
 
-class Cvar(BaseModel):
+class Cvar(NamedTuple):
     name: str
     value: str
     default: str | None = None
@@ -104,14 +104,9 @@ class EventType(enum.StrEnum):
     warmup = "Warmup"
 
 
-class LogEvent(BaseModel):
-    game_time: str
-    event_type: EventType
-    data: str | None
-
-
-class Event(BaseModel):
+class Event(NamedTuple):
     type: EventType
-    data: dict[str, Any] | None
-    client: Client | None
-    target: Client | None
+    game_time: str
+    data: dict[str, Any] | None = None
+    client: str | None = None
+    target: str | None = None

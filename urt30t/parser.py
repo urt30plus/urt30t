@@ -6,12 +6,12 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os
 
-from .models import Event, EventType, LogEvent
+from .models import Event, EventType
 
 logger = logging.getLogger(__name__)
 
 
-async def parse_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
+async def tail_log_events(log_file: Path, q: asyncio.Queue[Event]) -> None:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         await fp.seek(0, os.SEEK_END)
@@ -36,7 +36,7 @@ async def parse_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
                 await q.put(from_log_line(line))
 
 
-def from_log_line(line: str) -> LogEvent:
+def from_log_line(line: str) -> Event:
     """Creates a LogEvent from a raw log entry.
 
     A typical log entry usually starts with the time (MMM:SS) left padded
@@ -45,7 +45,7 @@ def from_log_line(line: str) -> LogEvent:
     >>> evt = from_log_line("  0:28 Flag: 0 0: team_CTF_blueflag")
     >>> evt.game_time
     '0:28'
-    >>> evt.event_type.name
+    >>> evt.type.name
     'flag'
     >>> evt.data
     '0 0: team_CTF_blueflag'
@@ -57,13 +57,14 @@ def from_log_line(line: str) -> LogEvent:
     game_time, _, rest = line.strip().partition(" ")
     event_name, sep, data = rest.partition(":")
     if sep:
-        data = data.lstrip()
         try:
             event_type = EventType(event_name)
         except ValueError:
             logger.warning("event type not found: [%s]-[%s]", event_name, data)
             event_type = EventType.unknown
             data = rest
+        else:
+            data = data.lstrip()
     elif event_name.startswith("Bombholder is "):
         event_type = EventType.bomb_holder
         data = event_name[14:]
@@ -83,16 +84,40 @@ def from_log_line(line: str) -> LogEvent:
         logger.warning("event type not in log line: [%s]", line)
         event_type = EventType.unknown
 
-    event = LogEvent(game_time=game_time, event_type=event_type, data=data)
+    event = parse_event_from_type(event_type, game_time, data)
     logger.debug("parsed %r", event)
     return event
 
 
-async def from_log_event(log_event: LogEvent) -> Event:
-    # TODO: implement me
+def parse_event_from_type(
+    event_type: EventType, game_time: str, event_data: str
+) -> Event:
+    data = {}
+    client = target = None
+    match event_type:
+        case EventType.bomb_holder:
+            client = event_data
+        case EventType.bomb:
+            "dropped by 0"
+            parts = event_data.split(" ")
+            data["action"] = parts[0]
+            client = parts[2]
+        case EventType.client_spawn:
+            client = event_data
+        case EventType.flag_return:
+            data["team"] = event_data
+        case EventType.say_team:
+            client, text = event_data.split(" ", maxsplit=1)
+            data["text"] = text
+        case EventType.session_data_initialised:
+            data["raw"] = event_data
+        case EventType.unknown:
+            data["raw"] = event_data
+
     return Event(
-        type=log_event.event_type,
-        data={"data": log_event.data},
-        client=None,
-        target=None,
+        type=event_type,
+        game_time=game_time,
+        data=data or None,
+        client=client,
+        target=target,
     )
