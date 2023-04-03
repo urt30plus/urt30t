@@ -11,11 +11,11 @@ from . import events
 logger = logging.getLogger(__name__)
 
 
-async def parse_log_events(log_file: Path) -> None:
+async def parse_log_events(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         await fp.seek(0, os.SEEK_END)
-        while True:
+        while await asyncio.sleep(0.250, result=True):
             if not (lines := await fp.readlines()):
                 # No lines found so check to see if we need to reset our position.
                 # Compare the current cursor position against the current file size,
@@ -33,6 +33,4 @@ async def parse_log_events(log_file: Path) -> None:
                     lines = await fp.readlines()
 
             for line in lines:
-                events.from_log_line(line)
-
-            await asyncio.sleep(0.250)
+                await q.put(events.from_log_line(line))

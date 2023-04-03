@@ -122,3 +122,13 @@ def from_log_line(line: str) -> LogEvent:
     event = LogEvent(game_time=game_time, event_type=event_type, data=data)
     logger.debug("parsed %r", event)
     return event
+
+
+async def from_log_event(log_event: LogEvent) -> Event:
+    # TODO: implement me
+    return Event(
+        type=log_event.event_type,
+        data={"data": log_event.data},
+        client=None,
+        target=None,
+    )

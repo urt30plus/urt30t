@@ -30,6 +30,7 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     games_log: Path = Required
     # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
     db_url: str = Required
+    event_queue_max_size: int = 100
 
 
 class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
