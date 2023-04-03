@@ -1,6 +1,7 @@
 import pytest
 
-from urt30t.events import EventType, from_log_line
+from urt30t import parser
+from urt30t.models import EventType
 
 
 @pytest.mark.parametrize(
@@ -35,6 +36,6 @@ from urt30t.events import EventType, from_log_line
     ],
 )
 def test_log_event_parsing(log_line, event_type, data):
-    e = from_log_line(log_line)
+    e = parser.from_log_line(log_line)
     assert e.event_type is event_type
     assert e.data == data

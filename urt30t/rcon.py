@@ -7,7 +7,8 @@ from typing import Self
 import asyncio_dgram
 from asyncio_dgram.aio import DatagramClient
 
-from . import game, settings
+from . import settings
+from .models import Cvar
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class RconClient:
 
         raise RconNoDataError(cmd)
 
-    async def cvar(self, name: str) -> game.Cvar | None:
+    async def cvar(self, name: str) -> Cvar | None:
         data = await self.send(name)
         for pat in _CVAR_PATTERNS:
             if m := pat.match(data):
@@ -116,7 +117,7 @@ class RconClient:
         except IndexError:
             default = None
 
-        return game.Cvar(name=name, value=m["value"], default=default)
+        return Cvar(name=name, value=m["value"], default=default)
 
     def _create_rcon_cmd(self, cmd: str) -> bytes:
         return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(

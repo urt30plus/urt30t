@@ -5,7 +5,8 @@ from typing import Never
 
 import aiojobs
 
-from . import __version__, events, game, parser, settings
+from . import __version__, parser, settings
+from .models import Game, LogEvent
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,8 @@ logger = logging.getLogger(__name__)
 class Bot:
     def __init__(self) -> None:
         self.scheduler = aiojobs.Scheduler()
-        self.events_queue = asyncio.Queue[events.LogEvent](
-            settings.bot.event_queue_max_size
-        )
-        self.game = game.Game()
+        self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
+        self.game = Game()
         self.start_time = time.time()
 
     async def event_dispatcher(self) -> None:
