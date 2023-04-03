@@ -2,16 +2,17 @@ import asyncio
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 import aiofiles
 import aiofiles.os
 
-from .models import Event, EventType
+from .models import Event, EventType, LogEvent
 
 logger = logging.getLogger(__name__)
 
 
-async def tail_log_events(log_file: Path, q: asyncio.Queue[Event]) -> None:
+async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         await fp.seek(0, os.SEEK_END)
@@ -36,7 +37,7 @@ async def tail_log_events(log_file: Path, q: asyncio.Queue[Event]) -> None:
                 await q.put(from_log_line(line))
 
 
-def from_log_line(line: str) -> Event:
+def from_log_line(line: str) -> LogEvent:
     """Creates a LogEvent from a raw log entry.
 
     A typical log entry usually starts with the time (MMM:SS) left padded
@@ -84,39 +85,37 @@ def from_log_line(line: str) -> Event:
         logger.warning("event type not in log line: [%s]", line)
         event_type = EventType.unknown
 
-    event = parse_event_from_type(event_type, game_time, data)
+    event = LogEvent(type=event_type, game_time=game_time, data=data)
     logger.debug("parsed %r", event)
     return event
 
 
-def parse_event_from_type(
-    event_type: EventType, game_time: str, event_data: str
-) -> Event:
-    data = {}
+def parse_from_log_event(log_event: LogEvent) -> Event:
+    data: dict[str, Any] = {}
     client = target = None
-    match event_type:
+    match log_event.type:
         case EventType.bomb_holder:
-            client = event_data
+            client = log_event.data
         case EventType.bomb:
             "dropped by 0"
-            parts = event_data.split(" ")
+            parts = log_event.data.split(" ")
             data["action"] = parts[0]
             client = parts[2]
         case EventType.client_spawn:
-            client = event_data
+            client = log_event.data
         case EventType.flag_return:
-            data["team"] = event_data
+            data["team"] = log_event.data
         case EventType.say_team:
-            client, text = event_data.split(" ", maxsplit=1)
+            client, text = log_event.data.split(" ", maxsplit=1)
             data["text"] = text
         case EventType.session_data_initialised:
-            data["raw"] = event_data
+            data["raw"] = log_event.data
         case EventType.unknown:
-            data["raw"] = event_data
+            data["raw"] = log_event.data
 
     return Event(
-        type=event_type,
-        game_time=game_time,
+        type=log_event.type,
+        game_time=log_event.game_time,
         data=data or None,
         client=client,
         target=target,

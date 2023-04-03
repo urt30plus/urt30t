@@ -8,7 +8,7 @@ from typing import Never
 import aiojobs
 
 from . import __version__, parser, settings
-from .models import Event, EventType, Game
+from .models import Event, EventType, Game, LogEvent
 
 logger = logging.getLogger(__name__)
 
@@ -20,16 +20,17 @@ class Bot:
         self.start_time = time.time()
         self.game = Game()
         self.scheduler = aiojobs.Scheduler()
-        self.events_queue = asyncio.Queue[Event](settings.bot.event_queue_max_size)
+        self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
         self.event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
 
     async def event_dispatcher(self) -> None:
-        while event := await self.events_queue.get():
-            if handlers := self.event_handlers.get(event.type):
+        while log_event := await self.events_queue.get():
+            if handlers := self.event_handlers.get(log_event.type):
+                event = parser.parse_from_log_event(log_event)
                 for handler in handlers:
                     handler(event)
             else:
-                logger.debug("no handler registered for event: %r", event)
+                logger.debug("no handler registered for event: %r", log_event)
 
     async def run(self) -> Never:
         logger.info("Bot v%s running", __version__)

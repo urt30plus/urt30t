@@ -104,6 +104,12 @@ class EventType(enum.StrEnum):
     warmup = "Warmup"
 
 
+class LogEvent(NamedTuple):
+    type: EventType
+    game_time: str
+    data: str
+
+
 class Event(NamedTuple):
     type: EventType
     game_time: str
