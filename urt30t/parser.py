@@ -2,17 +2,17 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Never
 
 import aiofiles
 import aiofiles.os
 
-from .models import Event, EventType, LogEvent
+from .models import BotError, Event, EventType, LogEvent
 
 logger = logging.getLogger(__name__)
 
 
-async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
+async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> Never:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         await fp.seek(0, os.SEEK_END)
@@ -35,6 +35,8 @@ async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
 
             for line in lines:
                 await q.put(from_log_line(line))
+
+    raise BotError
 
 
 def from_log_line(line: str) -> LogEvent:
@@ -105,6 +107,8 @@ def parse_from_log_event(log_event: LogEvent) -> Event:
             client = log_event.data
         case EventType.flag_return:
             data["team"] = log_event.data
+        case EventType.init_game:
+            data["text"] = log_event.data
         case EventType.say_team:
             client, text = log_event.data.split(" ", maxsplit=1)
             data["text"] = text

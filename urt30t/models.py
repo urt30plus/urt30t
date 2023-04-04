@@ -5,6 +5,10 @@ from typing import Any, NamedTuple
 from pydantic import BaseModel, Field
 
 
+class BotError(Exception):
+    pass
+
+
 class Team(enum.IntEnum):
     UNKNOWN = -1
     FREE = 0
@@ -17,6 +21,11 @@ class PlayerState(enum.IntEnum):
     DEAD = 1
     ALIVE = 2
     UNKNOWN = 3
+
+
+class Player(BaseModel):
+    id: str
+    state: PlayerState = PlayerState.UNKNOWN
 
 
 class GameType(enum.Enum):
@@ -43,15 +52,14 @@ class Game(BaseModel):
     frag_imit: int | None = None
     time_limit: int | None = None
 
+    # mapping of slot->player
+    players: dict[str, Player] = {}
+
 
 class Cvar(NamedTuple):
     name: str
     value: str
     default: str | None = None
-
-
-class Client(BaseModel):
-    id: str
 
 
 class EventType(enum.StrEnum):
