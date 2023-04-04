@@ -7,7 +7,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Never
+from typing import Any, NamedTuple, Never
 
 import aiofiles
 import aiofiles.os
@@ -26,10 +26,14 @@ __version__ = "30.0.0.rc1"
 logger = logging.getLogger(__name__)
 
 EventHandler = Callable[[Event], Awaitable[None]]
+CommandHandler = Callable[[str], Awaitable[None]]
+CommandFunction = Callable[[Any, str], Awaitable[None]]
 
 _plugins: list["BotPlugin"] = []
 
 _event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
+
+_command_handlers: dict[str, "BotCommandHandler"] = {}
 
 
 class BotError(Exception):
@@ -45,6 +49,18 @@ class BotPlugin:
 
     async def plugin_unload(self) -> None:
         pass
+
+
+class BotCommand(NamedTuple):
+    name: str
+    level: int
+    alias: str | None
+    handler: CommandHandler | None = None
+
+
+class BotCommandHandler(NamedTuple):
+    command: BotCommand
+    handler: CommandHandler
 
 
 class Bot:
@@ -74,6 +90,7 @@ class Bot:
             await obj.plugin_load()
             _plugins.append(obj)
             register_event_handlers(obj)
+            register_command_handlers(obj)
 
     async def event_dispatcher(self) -> Never:
         while log_event := await self.events_queue.get():
@@ -104,6 +121,30 @@ def register_event_handlers(plugin: BotPlugin) -> None:
         event_type = EventType[event_name]
         _event_handlers[event_type].append(meth)
         logger.info("added %s event handler: %s", event_type, meth)
+
+
+def register_command_handlers(plugin: BotPlugin) -> None:
+    for _, meth in inspect.getmembers(plugin, predicate=inspect.iscoroutinefunction):
+        if not (cmd := getattr(meth.__func__, "bot_command", None)):
+            continue
+        cmd_handler = BotCommandHandler(command=cmd, handler=meth)
+        _command_handlers[cmd.name] = cmd_handler
+        logger.info("added %r", cmd_handler)
+
+
+def bot_command(
+    level: int = 1, alias: str | None = None
+) -> Callable[[CommandFunction], CommandFunction]:
+    def inner(f: CommandFunction) -> CommandFunction:
+        name = f.__name__.removeprefix("cmd_")
+        f.bot_command = BotCommand(  # type: ignore[attr-defined]
+            name=name.lower(),
+            level=level,
+            alias=alias,
+        )
+        return f
+
+    return inner
 
 
 async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> Never:

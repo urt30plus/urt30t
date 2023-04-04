@@ -9,6 +9,7 @@ from urt30t import (
     GameType,
     Player,
     PlayerState,
+    bot_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,3 +49,7 @@ class CorePlugin(BotPlugin):
 
     async def on_say(self, event: Event) -> None:
         logger.info("on_say_team: %r", event)
+
+    @bot_command(level=0)
+    async def cmd_help(self, data: str) -> None:
+        logger.info("cmd_help called: %s", data)
