@@ -18,6 +18,7 @@ from .models import (
     Event,
     EventType,
     Game,
+    Group,
     LogEvent,
 )
 
@@ -56,7 +57,7 @@ class BotPlugin:
 
 class BotCommand(NamedTuple):
     name: str
-    level: int
+    level: Group
     alias: str | None
     handler: CommandHandler | None = None
 
@@ -73,7 +74,8 @@ class Bot:
         self.scheduler = aiojobs.Scheduler()
         self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
 
-    def find_command(self, name: str) -> BotCommandHandler | None:
+    @staticmethod
+    def find_command(name: str) -> BotCommandHandler | None:
         if handler := _command_handlers.get(name):
             return handler
         for handler in _command_handlers.values():
@@ -144,7 +146,7 @@ def register_command_handlers(plugin: BotPlugin) -> None:
 
 
 def bot_command(
-    level: int = 1, alias: str | None = None
+    level: Group = Group.user, alias: str | None = None
 ) -> Callable[[CommandFunction], CommandFunction]:
     def inner(f: CommandFunction) -> CommandFunction:
         name = f.__name__.removeprefix("cmd_")

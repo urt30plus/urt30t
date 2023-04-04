@@ -2,7 +2,7 @@
 Urban Terror |30+| Game/Discord Bot
 """
 from .core import Bot, BotCommandHandler, BotError, BotPlugin, __version__, bot_command
-from .models import Event, EventType, Game, GameType, Player, PlayerState
+from .models import Event, EventType, Game, GameType, Group, Player, PlayerState
 
 __all__ = [
     "__version__",
@@ -14,6 +14,7 @@ __all__ = [
     "EventType",
     "Game",
     "GameType",
+    "Group",
     "Player",
     "PlayerState",
     "bot_command",

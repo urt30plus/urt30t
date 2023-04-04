@@ -5,6 +5,17 @@ from typing import Any, NamedTuple
 from pydantic import BaseModel, Field
 
 
+class Group(enum.IntEnum):
+    guest = 0
+    user = 1
+    reg = 2
+    mod = 20
+    admin = 40
+    full_admin = 60
+    senior_admin = 80
+    super_admin = 100
+
+
 class Team(enum.IntEnum):
     UNKNOWN = -1
     FREE = 0

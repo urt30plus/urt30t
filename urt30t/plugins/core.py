@@ -8,6 +8,7 @@ from urt30t import (
     Event,
     Game,
     GameType,
+    Group,
     Player,
     PlayerState,
     bot_command,
@@ -83,13 +84,13 @@ class Commands(BotPlugin):
         else:
             logger.warning("no command found: %s", event)
 
-    @bot_command(level=0)
+    @bot_command(level=Group.guest, alias="wtf")
     async def cmd_help(self, data: str | None = None) -> None:
         logger.info("cmd_help called: %s", data)
 
     def _lookup_command(self, text: str) -> tuple[BotCommandHandler | None, str | None]:
         if text.startswith("!") and len(text) > 1:
-            cmd, data = text[1:].split(" ", maxsplit=1)
+            cmd, _, data = text[1:].partition(" ")
             handler = self.bot.find_command(cmd)
             return handler, data
         return None, None
