@@ -26,14 +26,17 @@ __version__ = "30.0.0.rc1"
 logger = logging.getLogger(__name__)
 
 EventHandler = Callable[[Event], Awaitable[None]]
-CommandHandler = Callable[[str], Awaitable[None]]
+CommandHandler = Callable[[str | None], Awaitable[None]]
 CommandFunction = Callable[[Any, str], Awaitable[None]]
 
 _plugins: list["BotPlugin"] = []
-
 _event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
-
 _command_handlers: dict[str, "BotCommandHandler"] = {}
+
+_core_plugins = [
+    "urt30t.plugins.core.GameState",
+    "urt30t.plugins.core.Commands",
+]
 
 
 class BotError(Exception):
@@ -70,8 +73,16 @@ class Bot:
         self.scheduler = aiojobs.Scheduler()
         self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
 
+    def find_command(self, name: str) -> BotCommandHandler | None:
+        if handler := _command_handlers.get(name):
+            return handler
+        for handler in _command_handlers.values():
+            if handler.command.alias == name:
+                return handler
+        return None
+
     async def load_plugins(self) -> None:
-        plugins_specs = ["urt30t.plugins.core.CorePlugin", *settings.bot.plugins]
+        plugins_specs = [*_core_plugins, *settings.bot.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
         plugin_classes: list[type[BotPlugin]] = []
         for spec in plugins_specs:
@@ -234,23 +245,32 @@ def parse_log_event(log_event: LogEvent) -> Event:
         case EventType.bomb_holder:
             client = log_event.data
         case EventType.bomb:
-            "dropped by 0"
             parts = log_event.data.split(" ")
             data["action"] = parts[0]
             client = parts[2]
         case EventType.client_spawn:
             client = log_event.data
+        case EventType.client_user_info | EventType.client_user_info_changed:
+            client, _, text = log_event.data.partition(" ")
+            data["text"] = text
         case EventType.flag_return:
             data["team"] = log_event.data
         case EventType.init_game:
             data["text"] = log_event.data
-        case EventType.say_team:
+        case EventType.say | EventType.say_team:
             client, text = log_event.data.split(" ", maxsplit=1)
+            name, text = text.split(": ", maxsplit=1)
             data["text"] = text
+            data["name"] = name
+        case EventType.say_tell:
+            client, target, text = log_event.data.split(" ", maxsplit=2)
+            name, text = text.split(": ", maxsplit=1)
+            data["text"] = text
+            data["name"] = name
         case EventType.session_data_initialised:
-            data["raw"] = log_event.data
+            data["text"] = log_event.data
         case EventType.unknown:
-            data["raw"] = log_event.data
+            data["text"] = log_event.data
 
     return Event(
         type=log_event.type,
