@@ -1,6 +1,6 @@
-import abc
 import asyncio
 import importlib.util
+import inspect
 import logging
 import os
 import time
@@ -15,7 +15,6 @@ import aiojobs
 
 from . import settings
 from .models import (
-    BotError,
     Event,
     EventType,
     Game,
@@ -28,18 +27,24 @@ logger = logging.getLogger(__name__)
 
 EventHandler = Callable[[Event], Awaitable[None]]
 
+_plugins: list["BotPlugin"] = []
 
-class BotPlugin(abc.ABC):
+_event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
+
+
+class BotError(Exception):
+    pass
+
+
+class BotPlugin:
     def __init__(self, bot: "Bot") -> None:
         self.bot = bot
 
-    @abc.abstractmethod
-    async def on_load(self) -> None:
-        raise NotImplementedError
+    async def plugin_load(self) -> None:
+        pass
 
-    @abc.abstractmethod
-    async def on_unload(self) -> None:
-        raise NotImplementedError
+    async def plugin_unload(self) -> None:
+        pass
 
 
 class Bot:
@@ -48,16 +53,6 @@ class Bot:
         self.game = Game()
         self.scheduler = aiojobs.Scheduler()
         self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
-        self._plugins: list["BotPlugin"] = []
-        self._event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
-
-    def register_event_handler(
-        self, event_type: EventType, event_handler: EventHandler
-    ) -> None:
-        handlers = self._event_handlers[event_type]
-        if event_handler in handlers:
-            raise BotError
-        handlers.append(event_handler)
 
     async def load_plugins(self) -> None:
         plugins_specs = ["urt30t.plugins.core.CorePlugin", *settings.bot.plugins]
@@ -76,12 +71,13 @@ class Bot:
 
         for cls in plugin_classes:
             obj = cls(bot=self)
-            await obj.on_load()
-            self._plugins.append(obj)
+            await obj.plugin_load()
+            _plugins.append(obj)
+            register_event_handlers(obj)
 
     async def event_dispatcher(self) -> Never:
         while log_event := await self.events_queue.get():
-            if handlers := self._event_handlers.get(log_event.type):
+            if handlers := _event_handlers.get(log_event.type):
                 event = parse_log_event(log_event)
                 for handler in handlers:
                     # TODO: handle regular and async functions as handlers
@@ -98,6 +94,16 @@ class Bot:
         )
         await self.load_plugins()
         await self.event_dispatcher()
+
+
+def register_event_handlers(plugin: BotPlugin) -> None:
+    for name, meth in inspect.getmembers(plugin, predicate=inspect.iscoroutinefunction):
+        if not name.startswith("on_"):
+            continue
+        event_name = name.removeprefix("on_")
+        event_type = EventType[event_name]
+        _event_handlers[event_type].append(meth)
+        logger.info("added %s event handler: %s", event_type, meth)
 
 
 async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> Never:

@@ -5,10 +5,6 @@ from typing import Any, NamedTuple
 from pydantic import BaseModel, Field
 
 
-class BotError(Exception):
-    pass
-
-
 class Team(enum.IntEnum):
     UNKNOWN = -1
     FREE = 0

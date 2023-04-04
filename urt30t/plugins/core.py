@@ -5,7 +5,6 @@ from urt30t import (
     BotError,
     BotPlugin,
     Event,
-    EventType,
     Game,
     GameType,
     Player,
@@ -16,23 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class CorePlugin(BotPlugin):
-    async def on_load(self) -> None:
-        self.bot.register_event_handler(EventType.init_game, self.on_init_game)
-        self.bot.register_event_handler(
-            EventType.client_connect, self.on_client_connect
-        )
-        self.bot.register_event_handler(
-            EventType.client_disconnect, self.on_client_disconnect
-        )
-        self.bot.register_event_handler(
-            EventType.client_user_info, self.on_client_user_info
-        )
-        self.bot.register_event_handler(EventType.client_spawn, self.on_client_spawn)
-        self.bot.register_event_handler(EventType.say, self.on_say)
-
-    async def on_unload(self) -> None:
-        pass
-
     async def on_init_game(self, event: Event) -> None:
         logger.info("on_init_game: %r", event)
         if not event.data:
