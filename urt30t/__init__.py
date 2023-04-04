@@ -1,5 +1,18 @@
 """
 Urban Terror |30+| Game/Discord Bot
 """
+from .core import Bot, BotError, BotPlugin, __version__
+from .models import Event, EventType, Game, GameType, Player, PlayerState
 
-__version__ = "30.0.0.rc1"
+__all__ = [
+    "__version__",
+    "Bot",
+    "BotError",
+    "BotPlugin",
+    "Event",
+    "EventType",
+    "Game",
+    "GameType",
+    "Player",
+    "PlayerState",
+]

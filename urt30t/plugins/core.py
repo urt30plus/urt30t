@@ -1,8 +1,16 @@
 import contextlib
 import logging
 
-from ..bot import BotPlugin
-from ..models import BotError, Event, EventType, Game, GameType, Player, PlayerState
+from urt30t import (
+    BotError,
+    BotPlugin,
+    Event,
+    EventType,
+    Game,
+    GameType,
+    Player,
+    PlayerState,
+)
 
 logger = logging.getLogger(__name__)
 

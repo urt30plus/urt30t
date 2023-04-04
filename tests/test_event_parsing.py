@@ -1,6 +1,6 @@
 import pytest
 
-from urt30t import parser
+from urt30t.core import parse_log_line
 from urt30t.models import EventType, LogEvent
 
 
@@ -49,5 +49,5 @@ from urt30t.models import EventType, LogEvent
     ],
 )
 def test_log_event_parsing(log_line, log_event):
-    e = parser.from_log_line(log_line)
+    e = parse_log_line(log_line)
     assert e == log_event
