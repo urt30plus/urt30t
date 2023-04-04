@@ -11,5 +11,6 @@ mypy
 
 export URT30T_GAMES_LOG=games.log
 export URT30T_DB_URL=sqlite+aiosqlite:///./b3.sqlite
+export URT30T_RCON_PASSWORD=sekret
 
 pytest
