@@ -253,6 +253,8 @@ class EventType(enum.Enum):
     init_round = "InitRound"
     item = "Item"
     kill = "Kill"
+    log_parser_ready = "Log Parser Ready"
+    log_parser_start = "Log Parser Start"
     log_separator = "Log Separator"
     radio = "Radio"
     red = "red"

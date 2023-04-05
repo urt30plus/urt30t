@@ -115,6 +115,9 @@ class Bot:
     async def event_dispatcher(self) -> Never:
         event_queue_get = self.events_queue.get
         handlers_get = _event_handlers.get
+        await self.events_queue.put(
+            LogEvent(type=EventType.log_parser_start, game_time="", data="")
+        )
         while log_event := await event_queue_get():
             if (event_type := log_event.type) in _ignored_events:
                 continue
@@ -147,8 +150,8 @@ class Bot:
         await self.scheduler.spawn(
             tail_log_events(settings.bot.games_log, self.events_queue)
         )
-        await self.load_plugins()
         await self.sync_game()
+        await self.load_plugins()
         await self.event_dispatcher()
 
 
@@ -190,6 +193,9 @@ async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> Never:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         await fp.seek(0, os.SEEK_END)
+        await q.put(LogEvent(type=EventType.log_parser_ready, game_time="", data=""))
+        event = await q.get()
+        assert event.type == EventType.log_parser_start  # noqa: S101
         while await asyncio.sleep(0.250, result=True):
             if not (lines := await fp.readlines()):
                 # No lines found so check to see if we need to reset our position.
