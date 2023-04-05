@@ -136,12 +136,19 @@ class Bot:
     async def message(self, message: str) -> None:
         await self.rcon.send(f'say "{message}"', retries=1)
 
+    async def sync_game(self) -> None:
+        old_game = self.game
+        new_game = await self.rcon.game_info()
+        logger.debug("Game state: %r --> %r", old_game, new_game)
+        self.game = new_game
+
     async def run(self) -> Never:
         logger.info("Bot v%s running", __version__)
         await self.scheduler.spawn(
             tail_log_events(settings.bot.games_log, self.events_queue)
         )
         await self.load_plugins()
+        await self.sync_game()
         await self.event_dispatcher()
 
 
