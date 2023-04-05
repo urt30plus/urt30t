@@ -94,6 +94,7 @@ class Player:
             team = Team[m["team"]]
             score = PlayerScore._make(int(m[x]) for x in PlayerScore._fields)
             ping = -1 if m["ping"] in ("CNCT", "ZMBI") else int(m["ping"])
+            ip_addr, _, port = m["ip_address"].partition(":")
             return cls(
                 id=m["slot"],
                 name=name,
@@ -101,7 +102,7 @@ class Player:
                 score=score,
                 ping=ping,
                 auth=m["auth"],
-                ip_address=m["ip_address"],
+                ip_address=ip_addr,
             )
         raise ValueError(data)
 
@@ -208,6 +209,7 @@ class Game:
             time=settings.get("GameTime", "00:00:00"),
             map_name=map_name,
             scores=settings.get("Scores"),
+            players={p.id: p for p in players},
         )
 
 

@@ -46,12 +46,13 @@ class GameStatePlugin(BotPlugin):
         logger.debug("on_client_user_info: %r", event)
         if event.client and event.data:
             data = self._parse_info_string(event.data["text"])
+            ip_addr, _, _ = data["ip"].partition(":")
             player = Player(
                 id=event.client,
                 name=data["name"],
                 guid=data["cl_guid"],
                 auth=data.get("authl"),
-                ip_address=data["ip"],
+                ip_address=ip_addr,
             )
             self.bot.game.players[player.id] = player
 
