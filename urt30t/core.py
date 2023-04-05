@@ -7,7 +7,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, NamedTuple, Never
+from typing import Any, NamedTuple
 
 import aiofiles
 import aiofiles.os
@@ -41,6 +41,7 @@ _core_plugins = [
 ]
 
 _ignored_events = (
+    EventType.log_parser_ready,
     EventType.log_separator,
     EventType.session_data_initialised,
 )
@@ -112,23 +113,25 @@ class Bot:
             register_event_handlers(obj)
             register_command_handlers(obj)
 
-    async def event_dispatcher(self) -> Never:
+    async def event_dispatcher(self) -> None:
         event_queue_get = self.events_queue.get
+        event_queue_done = self.events_queue.task_done
         handlers_get = _event_handlers.get
-        await self.events_queue.put(
-            LogEvent(type=EventType.log_parser_start, game_time="", data="")
-        )
         while log_event := await event_queue_get():
             if (event_type := log_event.type) in _ignored_events:
+                event_queue_done()
                 continue
             if handlers := handlers_get(event_type):
                 event = parse_log_event(log_event)
                 for handler in handlers:
-                    await handler(event)
+                    try:
+                        await handler(event)
+                    except Exception:
+                        logger.exception("%r failed to handle %r", handler, event)
             else:
                 logger.debug("no handler registered for event: %r", log_event)
 
-        raise BotError
+            event_queue_done()
 
     async def private_message(self, player: Player, message: str) -> None:
         await self.rcon.send(f'tell {player.id} "{message}"', retries=1)
@@ -145,7 +148,7 @@ class Bot:
         logger.debug("Game state: %r --> %r", old_game, new_game)
         self.game = new_game
 
-    async def run(self) -> Never:
+    async def run(self) -> None:
         logger.info("Bot v%s running", __version__)
         await self.scheduler.spawn(
             tail_log_events(settings.bot.games_log, self.events_queue)
@@ -189,13 +192,14 @@ def bot_command(
     return inner
 
 
-async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> Never:
+async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
-        await fp.seek(0, os.SEEK_END)
+        cur_pos = await fp.seek(0, os.SEEK_END)
+        logger.info("Log file current position: %s", cur_pos)
+        # signal that we are ready and wait for the event dispatcher to start
         await q.put(LogEvent(type=EventType.log_parser_ready, game_time="", data=""))
-        event = await q.get()
-        assert event.type == EventType.log_parser_start  # noqa: S101
+        await q.join()
         while await asyncio.sleep(0.250, result=True):
             if not (lines := await fp.readlines()):
                 # No lines found so check to see if we need to reset our position.
@@ -215,8 +219,6 @@ async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> Never:
 
             for line in lines:
                 await q.put(parse_log_line(line))
-
-    raise BotError
 
 
 def parse_log_line(line: str) -> LogEvent:
