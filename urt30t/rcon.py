@@ -8,7 +8,7 @@ import asyncio_dgram
 from asyncio_dgram.aio import DatagramClient
 
 from . import settings
-from .models import Cvar
+from .models import Cvar, Game
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,6 @@ _CVAR_PATTERNS = (
 
 
 class RconError(Exception):
-    pass
-
-
-class RconNoDataError(RconError):
     pass
 
 
@@ -98,7 +94,7 @@ class RconClient:
             logger.warning("Rcon %s: no data on try %s", cmd, i)
             await asyncio.sleep(self.read_timeout * i + 1)
 
-        raise RconNoDataError(cmd)
+        return ""
 
     async def cvar(self, name: str) -> Cvar | None:
         data = await self.send(name)
@@ -118,6 +114,12 @@ class RconClient:
             default = None
 
         return Cvar(name=name, value=m["value"], default=default)
+
+    async def game_info(self, *, retries: int = 3) -> Game:
+        cmd = "players"
+        data = await self.send(cmd, retries=retries)
+        logger.debug("Rcon %s payload:\n%s", cmd, data)
+        return Game.from_string(data)
 
     def _create_rcon_cmd(self, cmd: str) -> bytes:
         return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(

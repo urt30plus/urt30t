@@ -13,13 +13,14 @@ import aiofiles
 import aiofiles.os
 import aiojobs
 
-from . import settings
+from . import rcon, settings
 from .models import (
     Event,
     EventType,
     Game,
     Group,
     LogEvent,
+    Player,
 )
 
 __version__ = "30.0.0.rc1"
@@ -27,17 +28,22 @@ __version__ = "30.0.0.rc1"
 logger = logging.getLogger(__name__)
 
 EventHandler = Callable[[Event], Awaitable[None]]
-CommandHandler = Callable[[str | None], Awaitable[None]]
-CommandFunction = Callable[[Any, str], Awaitable[None]]
+CommandHandler = Callable[[Player, str | None], Awaitable[None]]
+CommandFunction = Callable[[Any, Player, str | None], Awaitable[None]]
 
 _plugins: list["BotPlugin"] = []
 _event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
 _command_handlers: dict[str, "BotCommandHandler"] = {}
 
 _core_plugins = [
-    "urt30t.plugins.core.GameState",
-    "urt30t.plugins.core.Commands",
+    "urt30t.plugins.core.GameStatePlugin",
+    "urt30t.plugins.core.CommandsPlugin",
 ]
+
+_ignored_events = (
+    EventType.log_separator,
+    EventType.session_data_initialised,
+)
 
 
 class BotError(Exception):
@@ -73,6 +79,7 @@ class Bot:
         self.game = Game()
         self.scheduler = aiojobs.Scheduler()
         self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
+        self.rcon = rcon.client
 
     @staticmethod
     def find_command(name: str) -> BotCommandHandler | None:
@@ -106,16 +113,28 @@ class Bot:
             register_command_handlers(obj)
 
     async def event_dispatcher(self) -> Never:
-        while log_event := await self.events_queue.get():
-            if handlers := _event_handlers.get(log_event.type):
+        event_queue_get = self.events_queue.get
+        handlers_get = _event_handlers.get
+        while log_event := await event_queue_get():
+            if (event_type := log_event.type) in _ignored_events:
+                continue
+            if handlers := handlers_get(event_type):
                 event = parse_log_event(log_event)
                 for handler in handlers:
-                    # TODO: handle regular and async functions as handlers
                     await handler(event)
             else:
                 logger.debug("no handler registered for event: %r", log_event)
 
         raise BotError
+
+    async def private_message(self, player: Player, message: str) -> None:
+        await self.rcon.send(f'tell {player.id} "{message}"', retries=1)
+
+    async def broadcast(self, message: str) -> None:
+        await self.rcon.send(f'"{message}"', retries=1)
+
+    async def message(self, message: str) -> None:
+        await self.rcon.send(f'say "{message}"', retries=1)
 
     async def run(self) -> Never:
         logger.info("Bot v%s running", __version__)
@@ -236,7 +255,7 @@ def parse_log_line(line: str) -> LogEvent:
         event_type = EventType.unknown
 
     event = LogEvent(type=event_type, game_time=game_time, data=data)
-    logger.debug("parsed %r", event)
+    logger.debug("%r", event)
     return event
 
 
@@ -244,12 +263,20 @@ def parse_log_event(log_event: LogEvent) -> Event:
     data: dict[str, Any] = {}
     client = target = None
     match log_event.type:
+        case EventType.account_validated:
+            client, auth, text = log_event.data.split(" - ", maxsplit=2)
+            data["text"] = text
+            data["auth"] = auth
         case EventType.bomb_holder:
             client = log_event.data
         case EventType.bomb:
             parts = log_event.data.split(" ")
             data["action"] = parts[0]
             client = parts[2]
+        case EventType.client_connect:
+            client = log_event.data
+        case EventType.client_disconnect:
+            client = log_event.data
         case EventType.client_spawn:
             client = log_event.data
         case EventType.client_user_info | EventType.client_user_info_changed:
