@@ -87,11 +87,13 @@ class RconClient:
         rcon_cmd = self._create_rcon_cmd(cmd)
         for i in range(1, retries + 1):
             await stream.send(rcon_cmd)
-            data = await self._receive()
+            data, reply_received = await self._receive()
             if data:
                 return data.decode(self.ENCODING)
+            if reply_received:
+                return ""
 
-            logger.warning("Rcon %s: no data on try %s", cmd, i)
+            logger.warning("Rcon %s: no reply received on try %s", cmd, i)
             await asyncio.sleep(self.read_timeout * i + 1)
 
         return ""
@@ -126,9 +128,10 @@ class RconClient:
             self.ENCODING
         )
 
-    async def _receive(self) -> bytearray:
+    async def _receive(self) -> tuple[bytearray, bool]:
         stream = await self.connect()
         result = bytearray()
+        reply_received = False
         while True:
             try:
                 data, _ = await asyncio.wait_for(
@@ -136,9 +139,11 @@ class RconClient:
                     timeout=self.read_timeout,
                 )
                 result += data.replace(self.REPLY_PREFIX, b"", 1)
+                reply_received = True
             except asyncio.TimeoutError:
                 break
-        return result
+
+        return result, reply_received
 
 
 client = RconClient(
