@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import importlib.util
 import inspect
 import logging
@@ -89,6 +90,13 @@ class Bot:
             if handler.command.alias == name:
                 return handler
         return None
+
+    def find_player(self, slot: str) -> Player | None:
+        return self.game.players.get(slot)
+
+    async def disconnect_player(self, slot: str) -> None:
+        with contextlib.suppress(KeyError):
+            del self.game.players[slot]
 
     async def load_plugins(self) -> None:
         plugins_specs = [*_core_plugins, *settings.bot.plugins]

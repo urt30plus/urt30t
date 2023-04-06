@@ -1,4 +1,3 @@
-import contextlib
 import logging
 
 from urt30t import (
@@ -20,9 +19,7 @@ logger = logging.getLogger(__name__)
 class GameStatePlugin(BotPlugin):
     async def on_init_game(self, event: Event) -> None:
         logger.debug("on_init_game: %r", event)
-        if not event.data:
-            logger.warning("missing event data")
-            return
+        assert event.data
         data = self._parse_info_string(event.data["text"])
         self.bot.game.type = GameType(data["g_gametype"])
         self.bot.game.map_name = data["mapname"]
@@ -38,56 +35,52 @@ class GameStatePlugin(BotPlugin):
 
     async def on_client_connect(self, event: Event) -> None:
         logger.debug("on_client_connect: %r", event)
-        if event.client:
-            with contextlib.suppress(KeyError):
-                del self.bot.game.players[event.client]
+        assert event.client
+        if player := self.bot.find_player(event.client):
+            logger.warning("other player found in slot: %r", player)
+            await self.bot.disconnect_player(player.id)
 
     async def on_client_user_info(self, event: Event) -> None:
         logger.debug("on_client_user_info: %r", event)
-        if event.client and event.data:
-            data = self._parse_info_string(event.data["text"])
-            ip_addr, _, _ = data["ip"].partition(":")
-            player = Player(
-                id=event.client,
-                name=data["name"],
-                guid=data["cl_guid"],
-                auth=data.get("authl"),
-                ip_address=ip_addr,
-            )
-            self.bot.game.players[player.id] = player
+        assert event.client and event.data
+        data = self._parse_info_string(event.data["text"])
+        ip_addr, _, _ = data["ip"].partition(":")
+        player = Player(
+            id=event.client,
+            name=data["name"],
+            guid=data["cl_guid"],
+            auth=data.get("authl"),
+            ip_address=ip_addr,
+        )
+        self.bot.game.players[player.id] = player
+        logger.debug("created %r", player)
 
     async def on_client_user_info_changed(self, event: Event) -> None:
         logger.debug("on_client_user_info_changed: %r", event)
-        if (
-            event.client
-            and event.data
-            and (player := self.bot.game.players.get(event.client))
-        ):
+        assert event.client and event.data
+        if player := self.bot.find_player(event.client):
             data = self._parse_info_string(event.data["text"])
             player.name = data["n"]
             player.team = Team(data["t"])
 
     async def on_client_spawn(self, event: Event) -> None:
         logger.debug("on_client_spawn: %r", event)
-        if event.client and event.client in self.bot.game.players:
-            self.bot.game.players[event.client].state = PlayerState.ALIVE
+        assert event.client
+        if player := self.bot.find_player(event.client):
+            player.state = PlayerState.ALIVE
 
     async def on_account_validated(self, event: Event) -> None:
         logger.debug("on_account_validated: %r", event)
-        if (
-            event.client
-            and event.data
-            and (player := self.bot.game.players.get(event.client))
-        ):
+        assert event.client and event.data
+        if player := self.bot.find_player(event.client):
             player.validated = True
             if player.auth != event.data["auth"]:
                 logger.warning("%s != %s", player.auth, event.data["auth"])
 
     async def on_client_disconnect(self, event: Event) -> None:
         logger.debug("on_client_disconnect: %r", event)
-        if event.client:
-            with contextlib.suppress(KeyError):
-                del self.bot.game.players[event.client]
+        assert event.client
+        await self.bot.disconnect_player(event.client)
 
     @staticmethod
     def _parse_info_string(data: str) -> dict[str, str]:
