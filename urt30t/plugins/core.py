@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class GameStatePlugin(BotPlugin):
     async def on_init_game(self, event: Event) -> None:
-        logger.debug("on_init_game: %r", event)
+        logger.debug(event)
         assert event.data
         data = self._parse_info_string(event.data["text"])
         self.bot.game.type = GameType(data["g_gametype"])
@@ -26,22 +26,22 @@ class GameStatePlugin(BotPlugin):
         # TODO: what about cap/frag/time limit and other settings
 
     async def on_warmup(self, event: Event) -> None:
-        logger.debug("on_warmup: %r", event)
+        logger.debug(event)
         self.bot.game.state = GameState.WARMUP
 
     async def on_init_round(self, event: Event) -> None:
-        logger.debug("on_init_round: %r", event)
+        logger.debug(event)
         self.bot.game.state = GameState.LIVE
 
     async def on_client_connect(self, event: Event) -> None:
-        logger.debug("on_client_connect: %r", event)
+        logger.debug(event)
         assert event.client
         if player := self.bot.find_player(event.client):
             logger.warning("other player found in slot: %r", player)
             await self.bot.disconnect_player(player.id)
 
     async def on_client_user_info(self, event: Event) -> None:
-        logger.debug("on_client_user_info: %r", event)
+        logger.debug(event)
         assert event.client and event.data
         data = self._parse_info_string(event.data["text"])
         ip_addr, _, _ = data["ip"].partition(":")
@@ -56,7 +56,7 @@ class GameStatePlugin(BotPlugin):
         logger.debug("created %r", player)
 
     async def on_client_user_info_changed(self, event: Event) -> None:
-        logger.debug("on_client_user_info_changed: %r", event)
+        logger.debug(event)
         assert event.client and event.data
         if player := self.bot.find_player(event.client):
             data = self._parse_info_string(event.data["text"])
@@ -64,13 +64,13 @@ class GameStatePlugin(BotPlugin):
             player.team = Team(data["t"])
 
     async def on_client_spawn(self, event: Event) -> None:
-        logger.debug("on_client_spawn: %r", event)
+        logger.debug(event)
         assert event.client
         if player := self.bot.find_player(event.client):
             player.state = PlayerState.ALIVE
 
     async def on_account_validated(self, event: Event) -> None:
-        logger.debug("on_account_validated: %r", event)
+        logger.debug(event)
         assert event.client and event.data
         if player := self.bot.find_player(event.client):
             player.validated = True
@@ -78,7 +78,7 @@ class GameStatePlugin(BotPlugin):
                 logger.warning("%s != %s", player.auth, event.data["auth"])
 
     async def on_client_disconnect(self, event: Event) -> None:
-        logger.debug("on_client_disconnect: %r", event)
+        logger.debug(event)
         assert event.client
         await self.bot.disconnect_player(event.client)
 

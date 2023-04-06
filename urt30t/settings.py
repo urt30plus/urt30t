@@ -46,7 +46,9 @@ bot = BotSettings()
 log = LogSettings()
 rcon = RconSettings()
 
-logging.basicConfig(format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(name)s:%(funcName)s %(message)s"
+)
 logging.getLogger().setLevel(log.level_root)
 logging.getLogger("urt30t").setLevel(log.level_bot)
 logging.getLogger("asyncio_dgram").setLevel(log.level_async_dgram)

@@ -93,7 +93,7 @@ class RconClient:
             if reply_received:
                 return ""
 
-            logger.warning("Rcon %s: no reply received on try %s", cmd, i)
+            logger.warning("command %s: no reply received on try %s", cmd, i)
             await asyncio.sleep(self.read_timeout * i + 1)
 
         return ""
@@ -120,7 +120,7 @@ class RconClient:
     async def game_info(self, *, retries: int = 3) -> Game:
         cmd = "players"
         data = await self.send(cmd, retries=retries)
-        logger.debug("Rcon %s payload:\n%s", cmd, data)
+        logger.debug("command %s: payload:\n%s", cmd, data)
         return Game.from_string(data)
 
     def _create_rcon_cmd(self, cmd: str) -> bytes:
