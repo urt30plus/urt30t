@@ -254,6 +254,9 @@ def parse_log_line(line: str) -> events.LogEvent:
     if sep:
         event_type = event_name.lower().replace(" ", "")
         data = data.lstrip()
+        if event_name == "red":
+            event_type = "teamscores"
+            data = f"red:{data}"
     elif event_name.startswith("Bombholder is "):
         event_type = "bombholder"
         data = event_name[14:]
@@ -263,6 +266,9 @@ def parse_log_line(line: str) -> events.LogEvent:
     elif event_name.startswith("Bomb has been "):
         event_type = "bomb"
         data = event_name[14:]
+    elif event_name == "Pop!":
+        event_type = "pop"
+        data = ""
     elif event_name.startswith("Session data initialised for client on slot "):
         event_type = "sessiondatainitialised"
         data = event_name[44:]
