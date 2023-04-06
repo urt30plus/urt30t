@@ -8,19 +8,16 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, TypeVar
 
 import aiofiles
 import aiofiles.os
 import aiojobs
 
-from . import rcon, settings
+from . import events, rcon, settings
 from .models import (
-    Event,
-    EventType,
     Game,
     Group,
-    LogEvent,
     Player,
 )
 
@@ -28,24 +25,26 @@ __version__ = "30.0.0.rc1"
 
 logger = logging.getLogger(__name__)
 
-EventHandler = Callable[[Event], Awaitable[None]]
+_T = TypeVar("_T")
+
+EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[[Player, str | None], Awaitable[None]]
 CommandFunction = Callable[[Any, Player, str | None], Awaitable[None]]
 
 _plugins: list["BotPlugin"] = []
-_event_handlers: dict[EventType, list[EventHandler]] = defaultdict(list)
+_event_handlers: dict[type[events.GameEvent], list[EventHandler]] = defaultdict(list)
 _command_handlers: dict[str, "BotCommandHandler"] = {}
+
+_event_class_by_action: dict[str, type[events.GameEvent]] = {
+    x[0].lower(): x[1]
+    for x in inspect.getmembers(events, predicate=inspect.isclass)
+    if issubclass(x[1], events.GameEvent)
+}
 
 _core_plugins = [
     "urt30t.plugins.core.GameStatePlugin",
     "urt30t.plugins.core.CommandsPlugin",
 ]
-
-_ignored_events = (
-    EventType.log_parser_ready,
-    EventType.log_separator,
-    EventType.session_data_initialised,
-)
 
 
 class BotError(Exception):
@@ -79,7 +78,9 @@ class Bot:
         self.start_time = time.time()
         self.game = Game()
         self.scheduler = aiojobs.Scheduler()
-        self.events_queue = asyncio.Queue[LogEvent](settings.bot.event_queue_max_size)
+        self.events_queue = asyncio.Queue[events.LogEvent](
+            settings.bot.event_queue_max_size
+        )
         self.rcon = rcon.client
 
     @staticmethod
@@ -117,19 +118,22 @@ class Bot:
             obj = cls(bot=self)
             await obj.plugin_load()
             _plugins.append(obj)
-            register_event_handlers(obj)
-            register_command_handlers(obj)
+            register_plugin(obj)
 
     async def event_dispatcher(self) -> None:
         event_queue_get = self.events_queue.get
         event_queue_done = self.events_queue.task_done
         handlers_get = _event_handlers.get
         while log_event := await event_queue_get():
-            if (event_type := log_event.type) in _ignored_events:
+            if log_event.type is None:
                 event_queue_done()
                 continue
-            if handlers := handlers_get(event_type):
-                event = parse_log_event(log_event)
+            if not (event_class := _event_class_by_action.get(log_event.type)):
+                logger.warning("no event class found: %r", log_event)
+                event_queue_done()
+                continue
+            if handlers := handlers_get(event_class):
+                event = event_class.from_log_event(log_event)
                 for handler in handlers:
                     try:
                         await handler(event)
@@ -165,23 +169,16 @@ class Bot:
         await self.event_dispatcher()
 
 
-def register_event_handlers(plugin: BotPlugin) -> None:
-    for name, meth in inspect.getmembers(plugin, predicate=inspect.iscoroutinefunction):
-        if not name.startswith("on_"):
-            continue
-        event_name = name.removeprefix("on_")
-        event_type = EventType[event_name]
-        _event_handlers[event_type].append(meth)
-        logger.info("added %s event handler: %s", event_type, meth)
-
-
-def register_command_handlers(plugin: BotPlugin) -> None:
+def register_plugin(plugin: BotPlugin) -> None:
     for _, meth in inspect.getmembers(plugin, predicate=inspect.iscoroutinefunction):
-        if not (cmd := getattr(meth.__func__, "bot_command", None)):
-            continue
-        cmd_handler = BotCommandHandler(command=cmd, handler=meth)
-        _command_handlers[cmd.name] = cmd_handler
-        logger.info("added %r", cmd_handler)
+        if subscription := getattr(meth.__func__, "bot_subscription", None):
+            _event_handlers[subscription].append(meth)
+            logger.info("add subscription: %s - %s", subscription, meth)
+
+        if cmd := getattr(meth.__func__, "bot_command", None):
+            cmd_handler = BotCommandHandler(command=cmd, handler=meth)
+            _command_handlers[cmd.name] = cmd_handler
+            logger.info("added %r", cmd_handler)
 
 
 def bot_command(
@@ -199,13 +196,27 @@ def bot_command(
     return inner
 
 
-async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
+def bot_subscribe(
+    event_type: type[_T],
+) -> Callable[
+    [Callable[[Any, _T], Awaitable[None]]], Callable[[Any, _T], Awaitable[None]]
+]:
+    def inner(
+        f: Callable[[Any, _T], Awaitable[None]]
+    ) -> Callable[[Any, _T], Awaitable[None]]:
+        f.bot_subscription = event_type  # type: ignore[attr-defined]
+        return f
+
+    return inner
+
+
+async def tail_log_events(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
     logger.info("Parsing game log file %s", log_file)
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         cur_pos = await fp.seek(0, os.SEEK_END)
         logger.info("Log file current position: %s", cur_pos)
         # signal that we are ready and wait for the event dispatcher to start
-        await q.put(LogEvent(type=EventType.log_parser_ready, game_time="", data=""))
+        await q.put(events.LogEvent())
         await q.join()
         while await asyncio.sleep(0.250, result=True):
             if not (lines := await fp.readlines()):
@@ -228,19 +239,11 @@ async def tail_log_events(log_file: Path, q: asyncio.Queue[LogEvent]) -> None:
                 await q.put(parse_log_line(line))
 
 
-def parse_log_line(line: str) -> LogEvent:
+def parse_log_line(line: str) -> events.LogEvent:
     """Creates a LogEvent from a raw log entry.
 
     A typical log entry usually starts with the time (MMM:SS) left padded
     with spaces, the event followed by a colon and then the even data. Ex.
-
-    >>> evt = parse_log_line("  0:28 Flag: 0 0: team_CTF_blueflag")
-    >>> evt.game_time
-    '0:28'
-    >>> evt.type.name
-    'flag'
-    >>> evt.data
-    '0 0: team_CTF_blueflag'
 
     This function main purpose is to perform a first pass parsing of the data
     in order to determine basic information about the log entry, such as
@@ -249,84 +252,28 @@ def parse_log_line(line: str) -> LogEvent:
     game_time, _, rest = line.strip().partition(" ")
     event_name, sep, data = rest.partition(":")
     if sep:
-        try:
-            event_type = EventType(event_name)
-        except ValueError:
-            logger.warning("event type not found: [%s]-[%s]", event_name, data)
-            event_type = EventType.unknown
-            data = rest
-        else:
-            data = data.lstrip()
+        event_type = event_name.lower().replace(" ", "")
+        data = data.lstrip()
     elif event_name.startswith("Bombholder is "):
-        event_type = EventType.bomb_holder
+        event_type = "bombholder"
         data = event_name[14:]
     elif event_name.startswith("Bomb was "):
-        event_type = EventType.bomb
+        event_type = "bomb"
         data = event_name[9:]
     elif event_name.startswith("Bomb has been "):
-        event_type = EventType.bomb
+        event_type = "bomb"
         data = event_name[14:]
     elif event_name.startswith("Session data initialised for client on slot "):
-        event_type = EventType.session_data_initialised
+        event_type = "sessiondatainitialised"
         data = event_name[44:]
     elif not event_name.strip("-"):
-        event_type = EventType.log_separator
+        event_type = None
         data = ""
     else:
         logger.warning("event type not in log line: [%s]", line)
-        event_type = EventType.unknown
+        event_type = None
+        data = event_name
 
-    event = LogEvent(type=event_type, game_time=game_time, data=data)
-    logger.debug("%r", event)
+    event = events.LogEvent(type=event_type, game_time=game_time, data=data)
+    logger.debug(event)
     return event
-
-
-def parse_log_event(log_event: LogEvent) -> Event:
-    data: dict[str, Any] = {}
-    client = target = None
-    match log_event.type:
-        case EventType.account_validated:
-            client, auth, text = log_event.data.split(" - ", maxsplit=2)
-            data["text"] = text
-            data["auth"] = auth
-        case EventType.bomb_holder:
-            client = log_event.data
-        case EventType.bomb:
-            parts = log_event.data.split(" ")
-            data["action"] = parts[0]
-            client = parts[2]
-        case EventType.client_connect:
-            client = log_event.data
-        case EventType.client_disconnect:
-            client = log_event.data
-        case EventType.client_spawn:
-            client = log_event.data
-        case EventType.client_user_info | EventType.client_user_info_changed:
-            client, _, text = log_event.data.partition(" ")
-            data["text"] = text
-        case EventType.flag_return:
-            data["team"] = log_event.data
-        case EventType.init_game:
-            data["text"] = log_event.data
-        case EventType.say | EventType.say_team:
-            client, text = log_event.data.split(" ", maxsplit=1)
-            name, text = text.split(": ", maxsplit=1)
-            data["text"] = text
-            data["name"] = name
-        case EventType.say_tell:
-            client, target, text = log_event.data.split(" ", maxsplit=2)
-            name, text = text.split(": ", maxsplit=1)
-            data["text"] = text
-            data["name"] = name
-        case EventType.session_data_initialised:
-            data["text"] = log_event.data
-        case EventType.unknown:
-            data["text"] = log_event.data
-
-    return Event(
-        type=log_event.type,
-        game_time=log_event.game_time,
-        data=data or None,
-        client=client,
-        target=target,
-    )

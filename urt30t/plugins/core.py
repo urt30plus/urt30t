@@ -3,7 +3,6 @@ import logging
 from urt30t import (
     BotCommandHandler,
     BotPlugin,
-    Event,
     GameState,
     GameType,
     Group,
@@ -11,76 +10,79 @@ from urt30t import (
     PlayerState,
     Team,
     bot_command,
+    bot_subscribe,
+    events,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class GameStatePlugin(BotPlugin):
-    async def on_init_game(self, event: Event) -> None:
+    @bot_subscribe(events.InitGame)
+    async def on_init_game(self, event: events.InitGame) -> None:
         logger.debug(event)
-        assert event.data
-        data = self._parse_info_string(event.data["text"])
-        self.bot.game.type = GameType(data["g_gametype"])
-        self.bot.game.map_name = data["mapname"]
+        self.bot.game.type = GameType(event.game_data["g_gametype"])
+        self.bot.game.map_name = event.game_data["mapname"]
         # TODO: what about cap/frag/time limit and other settings
 
-    async def on_warmup(self, event: Event) -> None:
+    @bot_subscribe(events.Warmup)
+    async def on_warmup(self, event: events.Warmup) -> None:
         logger.debug(event)
         self.bot.game.state = GameState.WARMUP
 
-    async def on_init_round(self, event: Event) -> None:
+    @bot_subscribe(events.InitRound)
+    async def on_init_round(self, event: events.InitRound) -> None:
         logger.debug(event)
         self.bot.game.state = GameState.LIVE
 
-    async def on_client_connect(self, event: Event) -> None:
+    @bot_subscribe(events.ClientConnect)
+    async def on_client_connect(self, event: events.ClientConnect) -> None:
         logger.debug(event)
-        assert event.client
-        if player := self.bot.find_player(event.client):
+        if player := self.bot.find_player(event.slot):
             logger.warning("other player found in slot: %r", player)
             await self.bot.disconnect_player(player.id)
 
-    async def on_client_user_info(self, event: Event) -> None:
+    @bot_subscribe(events.ClientUserInfo)
+    async def on_client_user_info(self, event: events.ClientUserInfo) -> None:
         logger.debug(event)
-        assert event.client and event.data
-        data = self._parse_info_string(event.data["text"])
-        ip_addr, _, _ = data["ip"].partition(":")
+        ip_addr, _, _ = event.user_data["ip"].partition(":")
         player = Player(
-            id=event.client,
-            name=data["name"],
-            guid=data["cl_guid"],
-            auth=data.get("authl"),
+            id=event.slot,
+            name=event.user_data["name"],
+            guid=event.user_data["cl_guid"],
+            auth=event.user_data.get("authl"),
             ip_address=ip_addr,
         )
         self.bot.game.players[player.id] = player
         logger.debug("created %r", player)
 
-    async def on_client_user_info_changed(self, event: Event) -> None:
+    @bot_subscribe(events.ClientUserinfoChanged)
+    async def on_client_user_info_changed(
+        self, event: events.ClientUserinfoChanged
+    ) -> None:
         logger.debug(event)
-        assert event.client and event.data
-        if player := self.bot.find_player(event.client):
-            data = self._parse_info_string(event.data["text"])
-            player.name = data["n"]
-            player.team = Team(data["t"])
+        if player := self.bot.find_player(event.slot):
+            player.name = event.user_data["n"]
+            player.team = Team(event.user_data["t"])
 
-    async def on_client_spawn(self, event: Event) -> None:
+    @bot_subscribe(events.ClientSpawn)
+    async def on_client_spawn(self, event: events.ClientSpawn) -> None:
         logger.debug(event)
-        assert event.client
-        if player := self.bot.find_player(event.client):
+        if player := self.bot.find_player(event.slot):
             player.state = PlayerState.ALIVE
 
-    async def on_account_validated(self, event: Event) -> None:
+    @bot_subscribe(events.AccountValidated)
+    async def on_account_validated(self, event: events.AccountValidated) -> None:
         logger.debug(event)
-        assert event.client and event.data
-        if player := self.bot.find_player(event.client):
+        if player := self.bot.find_player(event.slot):
             player.validated = True
-            if player.auth != event.data["auth"]:
-                logger.warning("%s != %s", player.auth, event.data["auth"])
+            if player.auth != event.auth:
+                logger.warning("%s != %s", player.auth, event.auth)
 
-    async def on_client_disconnect(self, event: Event) -> None:
+    @bot_subscribe(events.ClientDisconnect)
+    async def on_client_disconnect(self, event: events.ClientDisconnect) -> None:
         logger.debug(event)
-        assert event.client
-        await self.bot.disconnect_player(event.client)
+        await self.bot.disconnect_player(event.slot)
 
     @staticmethod
     def _parse_info_string(data: str) -> dict[str, str]:
@@ -89,25 +91,25 @@ class GameStatePlugin(BotPlugin):
 
 
 class CommandsPlugin(BotPlugin):
-    async def on_say(self, event: Event) -> None:
-        if not (event.data and event.client):
+    @bot_subscribe(events.Say)
+    async def on_say(self, event: events.Say) -> None:
+        if not event.text.startswith("!"):
             return
-        text = event.data.get("text")
-        if not (text and text.startswith("!")):
-            return
-        logger.info("on_say_team: %r", event)
-        command, data = self._lookup_command(text)
+        logger.info(event)
+        command, data = self._lookup_command(event.text)
         if command:
             # TODO: check if client has permission to exec command
-            player = self.bot.game.players[event.client]
+            player = self.bot.game.players[event.slot]
             await command.handler(player, data)
         else:
             logger.warning("no command found: %s", event)
 
-    async def on_say_team(self, event: Event) -> None:
+    @bot_subscribe(events.SayTeam)
+    async def on_say_team(self, event: events.SayTeam) -> None:
         await self.on_say(event)
 
-    async def on_say_tell(self, event: Event) -> None:
+    @bot_subscribe(events.SayTell)
+    async def on_say_tell(self, event: events.SayTell) -> None:
         await self.on_say(event)
 
     @bot_command(level=Group.guest, alias="wtf")
