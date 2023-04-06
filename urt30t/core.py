@@ -64,9 +64,8 @@ class BotPlugin:
 
 class BotCommand(NamedTuple):
     name: str
-    level: Group
-    alias: str | None
-    handler: CommandHandler | None = None
+    level: Group = Group.user
+    alias: str | None = None
 
 
 class BotCommandHandler(NamedTuple):
