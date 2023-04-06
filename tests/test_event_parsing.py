@@ -91,5 +91,12 @@ def test_event_assist():
 def test_event_team_scores():
     log_event = LogEvent("red", data="red:8  blue:5")
     e = events.TeamScores.from_log_event(log_event)
-    assert e.red == "8"
-    assert e.blue == "5"
+    assert e.red == 8
+    assert e.blue == 5
+
+
+def test_event_flag_capture_time():
+    log_event = LogEvent("flagcapturetime", data="0: 15750")
+    e = events.FlagCaptureTime.from_log_event(log_event)
+    assert e.slot == "0"
+    assert e.cap_time == 15.75

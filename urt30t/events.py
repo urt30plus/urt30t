@@ -12,6 +12,8 @@ class LogEvent(NamedTuple):
 
 @dataclasses.dataclass
 class GameEvent:
+    """Base class for all game related events."""
+
     game_time: str
 
     @classmethod
@@ -46,7 +48,7 @@ class AccountKick(GameEvent):
 
 @dataclasses.dataclass
 class AccountRejected(GameEvent):
-    """0:57 AccountRejected: 19 -  - "no account"""
+    """0:57 AccountRejected: 19 -  - "no account" """
 
     slot: str
 
@@ -95,8 +97,7 @@ class Assist(GameEvent):
 
 @dataclasses.dataclass
 class Bomb(GameEvent):
-    """
-    0:44 Bomb was tossed by 8
+    """0:44 Bomb was tossed by 8
     3:28 Bomb was planted by 13
     6:52 Bomb was defused by 11!
     3:22 Bomb has been collected by 13
@@ -198,6 +199,15 @@ class Flag(GameEvent):
 @dataclasses.dataclass
 class FlagCaptureTime(GameEvent):
     """0:46 FlagCaptureTime: 0: 6000"""
+
+    slot: str
+    cap_time: float
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        slot, _, data = log_event.data.partition(": ")
+        cap_time = float(data) / 1000
+        return cls(game_time=log_event.game_time, slot=slot, cap_time=cap_time)
 
 
 @dataclasses.dataclass
@@ -330,16 +340,18 @@ class ShutdownGame(GameEvent):
 class TeamScores(GameEvent):
     """15:22 red:8  blue:5"""
 
-    red: str
-    blue: str
+    red: int
+    blue: int
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
         red, _, blue = log_event.data.partition(" ")
+        r = red.strip().removeprefix("red:")
+        b = blue.strip().removeprefix("blue:")
         return cls(
             game_time=log_event.game_time,
-            red=red.strip().removeprefix("red:"),
-            blue=blue.strip().removeprefix("blue:"),
+            red=int(r),
+            blue=int(b),
         )
 
 
