@@ -19,9 +19,9 @@ class Group(enum.IntEnum):
 class Team(enum.Enum):
     UNKNOWN = "-1"
     FREE = "0"
-    SPEC = "1"
-    RED = "2"
-    BLUE = "3"
+    RED = "1"
+    BLUE = "2"
+    SPECTATOR = "3"
 
 
 class PlayerScore(NamedTuple):
@@ -157,7 +157,7 @@ class Game:
 
     @property
     def spectators(self) -> list[Player]:
-        return self._get_team(Team.SPEC)
+        return self._get_team(Team.SPECTATOR)
 
     @property
     def team_free(self) -> list[Player]:
