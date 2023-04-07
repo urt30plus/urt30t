@@ -204,7 +204,6 @@ class Game:
         if not (map_name := settings.get("Map", "Unknown")):
             raise RuntimeError("MAP_NOT_SET", data)
 
-        players.sort(reverse=True)
         return cls(
             type=GameType[settings.get("GameType", "UNKNOWN")],
             time=settings.get("GameTime", "00:00:00"),
