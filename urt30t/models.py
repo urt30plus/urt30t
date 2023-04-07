@@ -22,14 +22,14 @@ RE_PLAYER = re.compile(
 
 
 class Group(enum.IntEnum):
-    guest = 0
-    user = 1
-    reg = 2
-    mod = 20
-    admin = 40
-    full_admin = 60
-    senior_admin = 80
-    super_admin = 100
+    GUEST = 0
+    USER = 1
+    REGULAR = 2
+    MODERATOR = 20
+    ADMIN = 40
+    FULL_ADMIN = 60
+    SENIOR_ADMIN = 80
+    SUPER_ADMIN = 100
 
 
 class Team(enum.Enum):
@@ -136,6 +136,7 @@ class Game:
     time: str = "00:00:00"
     map_name: str = "Unknown"
     state: GameState = GameState.UNKNOWN
+    match_mode: bool = False
     scores: str | None = None
     players: dict[str, Player] = dataclasses.field(default_factory=dict)
 
@@ -208,6 +209,10 @@ class Game:
             type=GameType[settings.get("GameType", "UNKNOWN")],
             time=settings.get("GameTime", "00:00:00"),
             map_name=map_name,
+            state=GameState.LIVE
+            if settings.get("WarmupPhase", "NO") != "NO"
+            else GameState.WARMUP,
+            match_mode=settings.get("MatchMode", "OFF") != "OFF",
             scores=settings.get("Scores"),
             players={p.slot: p for p in players},
         )

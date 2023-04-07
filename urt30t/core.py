@@ -65,7 +65,7 @@ class BotPlugin:
 
 class BotCommand(NamedTuple):
     name: str
-    level: Group = Group.user
+    level: Group = Group.USER
     alias: str | None = None
 
 
@@ -96,6 +96,9 @@ class Bot:
 
     def find_player(self, slot: str) -> Player | None:
         return self.game.players.get(slot)
+
+    async def connect_player(self, player: Player) -> None:
+        self.game.players[player.slot] = player
 
     async def disconnect_player(self, slot: str) -> None:
         with contextlib.suppress(KeyError):
@@ -194,7 +197,7 @@ def register_plugin(plugin: BotPlugin) -> None:
 
 
 def bot_command(
-    level: Group = Group.user, alias: str | None = None
+    level: Group = Group.USER, alias: str | None = None
 ) -> Callable[[CommandFunction], CommandFunction]:
     def inner(f: CommandFunction) -> CommandFunction:
         name = f.__name__.removeprefix("cmd_")
