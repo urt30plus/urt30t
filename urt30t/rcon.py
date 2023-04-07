@@ -80,7 +80,7 @@ class RconClient:
         exc_val: BaseException,
         exc_tb: TracebackType,
     ) -> None:
-        await self.close()
+        self.close()
 
     async def send(self, cmd: str, retries: int = 2) -> str:
         stream = await self.connect()
