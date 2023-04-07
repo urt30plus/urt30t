@@ -37,9 +37,9 @@ _event_handlers: dict[type[events.GameEvent], list[EventHandler]] = defaultdict(
 _command_handlers: dict[str, "BotCommandHandler"] = {}
 
 _event_class_by_action: dict[str, type[events.GameEvent]] = {
-    x[0].lower(): x[1]
-    for x in inspect.getmembers(events, predicate=inspect.isclass)
-    if issubclass(x[1], events.GameEvent)
+    name.lower(): cls
+    for name, cls in inspect.getmembers(events, predicate=inspect.isclass)
+    if issubclass(cls, events.GameEvent)
 }
 
 _core_plugins = [
