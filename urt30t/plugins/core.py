@@ -40,20 +40,20 @@ class GameStatePlugin(BotPlugin):
         logger.debug(event)
         if player := self.bot.find_player(event.slot):
             logger.warning("other player found in slot: %r", player)
-            await self.bot.disconnect_player(player.id)
+            await self.bot.disconnect_player(player.slot)
 
     @bot_subscribe(events.ClientUserInfo)
     async def on_client_user_info(self, event: events.ClientUserInfo) -> None:
         logger.debug(event)
         ip_addr, _, _ = event.user_data["ip"].partition(":")
         player = Player(
-            id=event.slot,
+            slot=event.slot,
             name=event.user_data["name"],
             guid=event.user_data["cl_guid"],
             auth=event.user_data.get("authl"),
             ip_address=ip_addr,
         )
-        self.bot.game.players[player.id] = player
+        self.bot.game.players[player.slot] = player
         logger.debug("created %r", player)
 
     @bot_subscribe(events.ClientUserinfoChanged)

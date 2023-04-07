@@ -53,13 +53,13 @@ class Player:
         re.IGNORECASE,
     )
 
-    id: str
+    slot: str
     name: str
     guid: str | None = None
+    auth: str | None = None
     team: Team = Team.UNKNOWN
     score: PlayerScore = PlayerScore(0, 0, 0)
     ping: int = 0
-    auth: str | None = None
     ip_address: str | None = None
     validated: bool = False
     state: PlayerState = PlayerState.UNKNOWN
@@ -96,7 +96,7 @@ class Player:
             ping = -1 if m["ping"] in ("CNCT", "ZMBI") else int(m["ping"])
             ip_addr, _, port = m["ip_address"].partition(":")
             return cls(
-                id=m["slot"],
+                slot=m["slot"],
                 name=name,
                 team=team,
                 score=score,
@@ -209,7 +209,7 @@ class Game:
             time=settings.get("GameTime", "00:00:00"),
             map_name=map_name,
             scores=settings.get("Scores"),
-            players={p.id: p for p in players},
+            players={p.slot: p for p in players},
         )
 
 
