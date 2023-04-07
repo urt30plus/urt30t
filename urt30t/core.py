@@ -82,6 +82,7 @@ class Bot:
             settings.bot.event_queue_max_size
         )
         self.rcon = rcon.client
+        self.shutdown_event = asyncio.Event()
 
     @staticmethod
     def find_command(name: str) -> BotCommandHandler | None:
@@ -159,11 +160,21 @@ class Bot:
         logger.debug("Game state: %r --> %r", old_game, new_game)
         self.game = new_game
 
+    async def cleanup_task(self) -> None:
+        try:
+            await self.shutdown_event.wait()
+        except asyncio.CancelledError:
+            logger.info("shutdown_event triggered")
+            raise
+        finally:
+            self.rcon.close()
+
     async def run(self) -> None:
         logger.info("Bot v%s running", __version__)
         await self.scheduler.spawn(
             tail_log_events(settings.bot.games_log, self.events_queue)
         )
+        await self.scheduler.spawn(self.cleanup_task())
         await self.sync_game()
         await self.load_plugins()
         await self.event_dispatcher()

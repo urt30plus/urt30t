@@ -66,7 +66,7 @@ class RconClient:
             self.stream = await asyncio_dgram.connect((self.host, self.port))
         return self.stream
 
-    async def close(self) -> None:
+    def close(self) -> None:
         if self.stream is not None:
             self.stream.close()
 
