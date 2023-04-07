@@ -4,6 +4,22 @@ import functools
 import re
 from typing import Any, NamedTuple, Self
 
+RE_COLOR = re.compile(r"(\^\d)")
+
+RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
+
+RE_PLAYER = re.compile(
+    r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
+    r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
+    r"KILLS:(?P<kills>-?[0-9]+)\s+"
+    r"DEATHS:(?P<deaths>[0-9]+)\s+"
+    r"ASSISTS:(?P<assists>[0-9]+)\s+"
+    r"PING:(?P<ping>[0-9]+|CNCT|ZMBI)\s+"
+    r"AUTH:(?P<auth>.*)\s+"
+    r"IP:(?P<ip_address>.*)$",
+    re.IGNORECASE,
+)
+
 
 class Group(enum.IntEnum):
     guest = 0
@@ -39,20 +55,6 @@ class PlayerState(enum.Enum):
 @functools.total_ordering
 @dataclasses.dataclass
 class Player:
-    RE_COLOR = re.compile(r"(\^\d)")
-
-    RE_PLAYER = re.compile(
-        r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
-        r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
-        r"KILLS:(?P<kills>-?[0-9]+)\s+"
-        r"DEATHS:(?P<deaths>[0-9]+)\s+"
-        r"ASSISTS:(?P<assists>[0-9]+)\s+"
-        r"PING:(?P<ping>[0-9]+|CNCT|ZMBI)\s+"
-        r"AUTH:(?P<auth>.*)\s+"
-        r"IP:(?P<ip_address>.*)$",
-        re.IGNORECASE,
-    )
-
     slot: str
     name: str
     guid: str | None = None
@@ -89,8 +91,8 @@ class Player:
 
     @classmethod
     def from_string(cls, data: str) -> Self:
-        if m := re.match(Player.RE_PLAYER, data.strip()):
-            name = re.sub(Player.RE_COLOR, "", m["name"])
+        if m := RE_PLAYER.match(data.strip()):
+            name = RE_COLOR.sub("", m["name"])
             team = Team[m["team"]]
             score = PlayerScore._make(int(m[x]) for x in PlayerScore._fields)
             ping = -1 if m["ping"] in ("CNCT", "ZMBI") else int(m["ping"])
@@ -130,8 +132,6 @@ class GameState(enum.Enum):
 
 @dataclasses.dataclass
 class Game:
-    RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
-
     type: GameType = GameType.UNKNOWN
     time: str = "00:00:00"
     map_name: str = "Unknown"
@@ -143,7 +143,7 @@ class Game:
     def score_red(self) -> str | None:
         if not self.scores:
             return None
-        if m := re.match(self.RE_SCORES, self.scores):
+        if m := RE_SCORES.match(self.scores):
             return m["red"]
         return None
 
@@ -151,7 +151,7 @@ class Game:
     def score_blue(self) -> str | None:
         if not self.scores:
             return None
-        if m := re.match(self.RE_SCORES, self.scores):
+        if m := RE_SCORES.match(self.scores):
             return m["blue"]
         return None
 
