@@ -146,7 +146,7 @@ class Bot:
             event_queue_done()
 
     async def private_message(self, player: Player, message: str) -> None:
-        await self.rcon.send(f'tell {player.id} "{message}"', retries=1)
+        await self.rcon.send(f'tell {player.slot} "{message}"', retries=1)
 
     async def broadcast(self, message: str) -> None:
         await self.rcon.send(f'"{message}"', retries=1)
