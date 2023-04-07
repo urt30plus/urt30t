@@ -23,7 +23,7 @@ class GameStatePlugin(BotPlugin):
         logger.debug(event)
         self.bot.game.type = GameType(event.game_data["g_gametype"])
         self.bot.game.map_name = event.game_data["mapname"]
-        # TODO: what about cap/frag/time limit and other settings
+        # TODO: what about cap/frag/time limit and match mode?
 
     @bot_subscribe(events.Warmup)
     async def on_warmup(self, event: events.Warmup) -> None:
@@ -33,6 +33,7 @@ class GameStatePlugin(BotPlugin):
     @bot_subscribe(events.InitRound)
     async def on_init_round(self, event: events.InitRound) -> None:
         logger.debug(event)
+        # TODO: assert or check that previous state was Warmup?
         self.bot.game.state = GameState.LIVE
 
     @bot_subscribe(events.ClientConnect)
@@ -78,6 +79,7 @@ class GameStatePlugin(BotPlugin):
         self, event: events.ClientUserinfoChanged
     ) -> None:
         logger.debug(event)
+        # TODO: do we care about funstuff, armban colors and model selection?
         if player := self.bot.find_player(event.slot):
             if (name := event.user_data["n"]) != player.name:
                 logger.warning("name change: %s -> %s", player.name, name)
@@ -104,6 +106,7 @@ class GameStatePlugin(BotPlugin):
     async def on_client_begin(self, event: events.ClientBegin) -> None:
         logger.debug(event)
         # TODO: good time to load/save info to db?
+        # TODO: check for bans
 
     @bot_subscribe(events.ClientSpawn)
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
@@ -130,9 +133,11 @@ class CommandsPlugin(BotPlugin):
         logger.info(event)
         command, data = self._lookup_command(event.text)
         if command:
-            # TODO: check if client has permission to exec command
-            player = self.bot.game.players[event.slot]
-            await command.handler(player, data)
+            if player := self.bot.find_player(event.slot):
+                # TODO: check if client has permission to exec command
+                await command.handler(player, data)
+            else:
+                logger.warning("slot %s no longer connected: %s", event.slot, command)
         else:
             logger.warning("no command found: %s", event)
 
