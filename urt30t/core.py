@@ -8,7 +8,7 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, NamedTuple, TypeVar
+from typing import Any, NamedTuple, ParamSpec, TypeVar
 
 import aiofiles
 import aiofiles.os
@@ -26,6 +26,7 @@ __version__ = "30.0.0.rc1"
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
 
 EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[[Player, str | None], Awaitable[None]]
@@ -209,12 +210,8 @@ def bot_command(
 
 def bot_subscribe(
     event_type: type[_T],
-) -> Callable[
-    [Callable[[Any, _T], Awaitable[None]]], Callable[[Any, _T], Awaitable[None]]
-]:
-    def inner(
-        f: Callable[[Any, _T], Awaitable[None]]
-    ) -> Callable[[Any, _T], Awaitable[None]]:
+) -> Callable[[Callable[_P, Awaitable[None]]], Callable[_P, Awaitable[None]]]:
+    def inner(f: Callable[_P, Awaitable[None]]) -> Callable[_P, Awaitable[None]]:
         f.bot_subscription = event_type  # type: ignore[attr-defined]
         return f
 
