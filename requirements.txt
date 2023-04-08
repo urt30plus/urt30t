@@ -1,7 +1,8 @@
 aiofiles==23.1.0
 aiojobs==1.1.0
+alembic==1.10.3
 asyncio-dgram==2.1.2
-discord.py==2.2.2
 pydantic==1.10.7
 python-dotenv==1.0.0
+sqlalchemy==2.0.9
 tzdata
