@@ -40,6 +40,15 @@ class Team(enum.Enum):
     SPECTATOR = "3"
 
 
+class BombAction(enum.Enum):
+    COLLECTED = "collected"
+    DEFUSED = "defused"
+    DROPPED = "dropped"
+    PLACED = "placed"
+    PLANTED = "planted"
+    TOSSED = "tossed"
+
+
 class KillMode(enum.Enum):
     WATER = "1"
     LAVA = "3"

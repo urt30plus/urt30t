@@ -1,7 +1,7 @@
 import dataclasses
 from typing import NamedTuple, Self
 
-from .models import KillMode, Team
+from .models import BombAction, KillMode, Team
 
 
 class LogEvent(NamedTuple):
@@ -104,14 +104,14 @@ class Bomb(GameEvent):
     """
 
     slot: str
-    # TODO: BombAction enum?
-    action: str
+    action: BombAction
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
         assert log_event.data
-        parts = log_event.data.split(" ")
-        return cls(game_time=log_event.game_time, slot=parts[2], action=parts[0])
+        action, _, slot = log_event.data.split(" ")
+        slot = slot.rstrip("!")  # defused by 11!
+        return cls(game_time=log_event.game_time, slot=slot, action=BombAction(action))
 
 
 @dataclasses.dataclass
@@ -127,7 +127,7 @@ class BombHolder(GameEvent):
 
 @dataclasses.dataclass
 class CallVote(GameEvent):
-    pass
+    """TODO: implement me"""
 
 
 @dataclasses.dataclass
@@ -151,7 +151,7 @@ class ClientDisconnect(SlotGameEvent):
 
 @dataclasses.dataclass
 class ClientMelted(GameEvent):
-    pass
+    """TODO: implement me"""
 
 
 @dataclasses.dataclass
@@ -229,7 +229,7 @@ class Freeze(GameEvent):
 
 @dataclasses.dataclass
 class Hit(GameEvent):
-    pass
+    """TODO: implement me"""
 
 
 @dataclasses.dataclass
@@ -372,17 +372,17 @@ class TeamScores(GameEvent):
 
 @dataclasses.dataclass
 class Vote(GameEvent):
-    pass
+    """TODO: implement me"""
 
 
 @dataclasses.dataclass
 class VoteFailed(GameEvent):
-    pass
+    """TODO: implement me"""
 
 
 @dataclasses.dataclass
 class VotePassed(GameEvent):
-    pass
+    """TODO: implement me"""
 
 
 @dataclasses.dataclass
