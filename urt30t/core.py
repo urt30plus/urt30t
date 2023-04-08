@@ -8,7 +8,8 @@ import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, NamedTuple, ParamSpec, TypeVar
+from types import FunctionType
+from typing import Any, NamedTuple, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
@@ -26,11 +27,10 @@ __version__ = "30.0.0.rc1"
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
-_P = ParamSpec("_P")
 
 EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[[Player, str | None], Awaitable[None]]
-CommandFunction = Callable[[Any, Player, str | None], Awaitable[None]]
+CommandHandlerFunc = Callable[[Any, Player, str | None], Awaitable[None]]
 
 _plugins: list["BotPlugin"] = []
 _event_handlers: dict[type[events.GameEvent], list[EventHandler]] = defaultdict(list)
@@ -198,8 +198,8 @@ def register_plugin(plugin: BotPlugin) -> None:
 
 def bot_command(
     level: Group = Group.USER, alias: str | None = None
-) -> Callable[[CommandFunction], CommandFunction]:
-    def inner(f: CommandFunction) -> CommandFunction:
+) -> Callable[[CommandHandlerFunc], CommandHandlerFunc]:
+    def inner(f: CommandHandlerFunc) -> CommandHandlerFunc:
         name = f.__name__.removeprefix("cmd_")
         f.bot_command = BotCommand(  # type: ignore[attr-defined]
             name=name.lower(),
@@ -211,14 +211,17 @@ def bot_command(
     return inner
 
 
-def bot_subscribe(
-    event_type: type[_T],
-) -> Callable[[Callable[_P, Awaitable[None]]], Callable[_P, Awaitable[None]]]:
-    def inner(f: Callable[_P, Awaitable[None]]) -> Callable[_P, Awaitable[None]]:
-        f.bot_subscription = event_type  # type: ignore[attr-defined]
-        return f
+def bot_subscribe(f: _T) -> _T:
+    func: FunctionType = cast(FunctionType, f)
+    if len(func.__annotations__) == 2 and func.__annotations__["return"] is None:
+        for var_name, var_type in func.__annotations__.items():
+            if var_name == "return":
+                continue
+            if issubclass(var_type, events.GameEvent):
+                f.bot_subscription = var_type  # type: ignore[attr-defined]
+                return f
 
-    return inner
+    raise TypeError
 
 
 async def tail_log_events(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:

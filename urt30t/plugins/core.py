@@ -18,31 +18,31 @@ logger = logging.getLogger(__name__)
 
 
 class GameStatePlugin(BotPlugin):
-    @bot_subscribe(events.InitGame)
+    @bot_subscribe
     async def on_init_game(self, event: events.InitGame) -> None:
         logger.debug(event)
         self.bot.game.type = GameType(event.game_data["g_gametype"])
         self.bot.game.map_name = event.game_data["mapname"]
         # TODO: what about cap/frag/time limit and match mode?
 
-    @bot_subscribe(events.Warmup)
+    @bot_subscribe
     async def on_warmup(self, event: events.Warmup) -> None:
         logger.debug(event)
         self.bot.game.state = GameState.WARMUP
 
-    @bot_subscribe(events.InitRound)
+    @bot_subscribe
     async def on_init_round(self, event: events.InitRound) -> None:
         logger.debug(event)
         # TODO: assert or check that previous state was Warmup?
         self.bot.game.state = GameState.LIVE
 
-    @bot_subscribe(events.ClientConnect)
+    @bot_subscribe
     async def on_client_connect(self, event: events.ClientConnect) -> None:
         logger.debug(event)
         if player := self.bot.find_player(event.slot):
             logger.warning("existing player found in slot: %r", player)
 
-    @bot_subscribe(events.ClientUserInfo)
+    @bot_subscribe
     async def on_client_user_info(self, event: events.ClientUserInfo) -> None:
         logger.debug(event)
         guid = event.user_data["cl_guid"]
@@ -74,7 +74,7 @@ class GameStatePlugin(BotPlugin):
         await self.bot.connect_player(player)
         logger.debug("created %r", player)
 
-    @bot_subscribe(events.ClientUserinfoChanged)
+    @bot_subscribe
     async def on_client_user_info_changed(
         self, event: events.ClientUserinfoChanged
     ) -> None:
@@ -94,7 +94,7 @@ class GameStatePlugin(BotPlugin):
             player.name = name
             player.team = team
 
-    @bot_subscribe(events.AccountValidated)
+    @bot_subscribe
     async def on_account_validated(self, event: events.AccountValidated) -> None:
         logger.debug(event)
         if player := self.bot.find_player(event.slot):
@@ -102,19 +102,19 @@ class GameStatePlugin(BotPlugin):
             if player.auth != event.auth:
                 logger.warning("%s != %s", player.auth, event.auth)
 
-    @bot_subscribe(events.ClientBegin)
+    @bot_subscribe
     async def on_client_begin(self, event: events.ClientBegin) -> None:
         logger.debug(event)
         # TODO: good time to load/save info to db?
         # TODO: check for bans
 
-    @bot_subscribe(events.ClientSpawn)
+    @bot_subscribe
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
         logger.debug(event)
         if player := self.bot.find_player(event.slot):
             player.state = PlayerState.ALIVE
 
-    @bot_subscribe(events.ClientDisconnect)
+    @bot_subscribe
     async def on_client_disconnect(self, event: events.ClientDisconnect) -> None:
         logger.debug(event)
         await self.bot.disconnect_player(event.slot)
@@ -126,7 +126,7 @@ class GameStatePlugin(BotPlugin):
 
 
 class CommandsPlugin(BotPlugin):
-    @bot_subscribe(events.Say)
+    @bot_subscribe
     async def on_say(self, event: events.Say) -> None:
         if not event.text.startswith("!"):
             return
@@ -141,11 +141,11 @@ class CommandsPlugin(BotPlugin):
         else:
             logger.warning("no command found: %s", event)
 
-    @bot_subscribe(events.SayTeam)
+    @bot_subscribe
     async def on_say_team(self, event: events.SayTeam) -> None:
         await self.on_say(event)
 
-    @bot_subscribe(events.SayTell)
+    @bot_subscribe
     async def on_say_tell(self, event: events.SayTell) -> None:
         await self.on_say(event)
 
