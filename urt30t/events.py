@@ -1,7 +1,7 @@
 import dataclasses
 from typing import NamedTuple, Self
 
-from .models import Team
+from .models import KillMode, Team
 
 
 class LogEvent(NamedTuple):
@@ -270,6 +270,21 @@ class Item(GameEvent):
 @dataclasses.dataclass
 class Kill(GameEvent):
     """3:17 Kill: 8 5 46: |30+|Mudcat^7 killed |30+|BenderBot^7 by UT_MOD_TOD50"""
+
+    slot: str
+    victim: str
+    kill_mode: KillMode
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        parts, _, _ = log_event.data.partition(":")
+        slot, victim, mode = parts.split(" ")
+        return cls(
+            game_time=log_event.game_time,
+            slot=slot,
+            victim=victim,
+            kill_mode=KillMode(mode),
+        )
 
 
 @dataclasses.dataclass
