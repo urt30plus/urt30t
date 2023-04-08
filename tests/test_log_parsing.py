@@ -7,16 +7,28 @@ def test_log_account_kick():
     assert e.data == "13 - [ABC]foobar^7 rejected: no account"
 
 
-def test_log_bomb():
+def test_log_bomb_dropped():
     e = parse_log_line("  3:01 Bomb has been dropped by 2")
     assert e.type == "bomb"
     assert e.data == "dropped by 2"
+
+
+def test_log_bomb_difused():
+    e = parse_log_line(" 6:52 Bomb was defused by 11!")
+    assert e.type == "bomb"
+    assert e.data == "defused by 11!"
 
 
 def test_log_bomb_holder():
     e = parse_log_line("  3:01 Bombholder is 2")
     assert e.type == "bombholder"
     assert e.data == "2"
+
+
+def test_log_bomb_explode():
+    e = parse_log_line("  3:02 Pop!")
+    assert e.type == "pop"
+    assert e.data == ""
 
 
 def test_log_client_spawn():
@@ -61,3 +73,9 @@ def test_log_teams_scores():
     e = parse_log_line(" 15:22 red:8  blue:5")
     assert e.type == "teamscores"
     assert e.data == "red:8  blue:5"
+
+
+def test_log_no_type():
+    e = parse_log_line(" 12:33 no type found")
+    assert e.type is None
+    assert e.data == "no type found"
