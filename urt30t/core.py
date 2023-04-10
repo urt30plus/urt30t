@@ -9,7 +9,7 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from types import FunctionType
-from typing import Any, NamedTuple, TypeVar, cast
+from typing import NamedTuple, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
@@ -30,7 +30,6 @@ _T = TypeVar("_T")
 
 EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[[Player, str | None], Awaitable[None]]
-CommandHandlerFunc = Callable[[Any, Player, str | None], Awaitable[None]]
 
 _plugins: list["BotPlugin"] = []
 _event_handlers: dict[type[events.GameEvent], list[EventHandler]] = defaultdict(list)
@@ -198,9 +197,9 @@ def register_plugin(plugin: BotPlugin) -> None:
 
 def bot_command(
     level: Group = Group.USER, alias: str | None = None
-) -> Callable[[CommandHandlerFunc], CommandHandlerFunc]:
-    def inner(f: CommandHandlerFunc) -> CommandHandlerFunc:
-        name = f.__name__.removeprefix("cmd_")
+) -> Callable[[_T], _T]:
+    def inner(f: _T) -> _T:
+        name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
         f.bot_command = BotCommand(  # type: ignore[attr-defined]
             name=name.lower(),
             level=level,
