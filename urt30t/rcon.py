@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 import logging
 import re
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from types import TracebackType
 from typing import Self
 
@@ -62,10 +62,10 @@ class RconClient:
         self.read_timeout = read_timeout
         self.stream: DatagramClient | None = None
         self.lock = asyncio.Lock()
-        self.tasks = set()
+        self.tasks: set[asyncio.Task[None]] = set()
 
     @contextlib.asynccontextmanager
-    async def connect(self) -> Iterator[DatagramClient]:
+    async def connect(self) -> AsyncIterator[DatagramClient]:
         if self.stream is None:
             logger.info("connecting stream to %s:%s", self.host, self.port)
             self.stream = await asyncio_dgram.connect((self.host, self.port))
