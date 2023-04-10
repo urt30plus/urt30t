@@ -239,6 +239,14 @@ class HotPotato(GameEvent):
 @dataclasses.dataclass
 class InitAuth(GameEvent):
     r"""0:00 InitAuth: \auth\-1\auth_status\notoriety\auth_cheaters\1\..."""
+    auth_data: dict[str, str]
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        assert log_event.data
+        return cls(
+            game_time=log_event.game_time, auth_data=_parse_info_string(log_event.data)
+        )
 
 
 @dataclasses.dataclass

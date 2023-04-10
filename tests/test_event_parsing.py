@@ -97,6 +97,15 @@ def test_event_kill():
     assert e.kill_mode is KillMode.TOD50
 
 
+def test_event_init_auth():
+    log_event = LogEvent(
+        "initauth",
+        data=r"\auth\0\auth_status\init\auth_cheaters\1\auth_tags\1\auth_notoriety\1\auth_groups\\auth_owners\579\auth_verbosity\1",
+    )
+    e = events.InitAuth.from_log_event(log_event)
+    assert e.auth_data["auth_owners"] == "579"
+
+
 def test_event_team_scores():
     log_event = LogEvent("red", data="red:8  blue:5")
     e = events.TeamScores.from_log_event(log_event)
