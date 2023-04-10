@@ -81,7 +81,13 @@ class Bot:
         self.events_queue = asyncio.Queue[events.LogEvent](
             settings.bot.event_queue_max_size
         )
-        self.rcon = rcon.client
+        self.rcon = rcon.RconClient(
+            host=settings.rcon.host,
+            port=settings.rcon.port,
+            rcon_pass=settings.rcon.password,
+            connect_timeout=settings.rcon.connect_timeout,
+            read_timeout=settings.rcon.read_timeout,
+        )
         self.shutdown_event = asyncio.Event()
 
     @staticmethod

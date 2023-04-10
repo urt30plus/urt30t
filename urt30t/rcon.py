@@ -1,6 +1,8 @@
 import asyncio
+import contextlib
 import logging
 import re
+from collections.abc import Iterator
 from types import TracebackType
 from typing import Self
 
@@ -59,19 +61,22 @@ class RconClient:
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         self.stream: DatagramClient | None = None
+        self.lock = asyncio.Lock()
+        self.tasks = set()
 
-    async def connect(self) -> DatagramClient:
+    @contextlib.asynccontextmanager
+    async def connect(self) -> Iterator[DatagramClient]:
         if self.stream is None:
             logger.info("connecting stream to %s:%s", self.host, self.port)
             self.stream = await asyncio_dgram.connect((self.host, self.port))
-        return self.stream
+        async with self.lock:
+            yield self.stream
 
     def close(self) -> None:
         if self.stream is not None:
             self.stream.close()
 
     async def __aenter__(self) -> Self:
-        await self.connect()
         return self
 
     async def __aexit__(
@@ -82,21 +87,25 @@ class RconClient:
     ) -> None:
         self.close()
 
-    async def send(self, cmd: str, retries: int = 2) -> str:
-        stream = await self.connect()
-        rcon_cmd = self._create_rcon_cmd(cmd)
-        for i in range(1, retries + 1):
-            await stream.send(rcon_cmd)
-            data, reply_received = await self._receive()
-            if data:
-                return data.decode(self.ENCODING)
-            if reply_received:
-                return ""
+    async def send(self, cmd: str, retries: int = 0) -> str:
+        max_range = 2 if retries <= 0 else retries + 2
+        async with self.connect() as stream:
+            for i in range(1, max_range):
+                data, reply_received = await self._send(stream, cmd)
+                if data:
+                    return data
+                if reply_received:
+                    return ""
 
-            logger.warning("command %s: no reply received on try %s", cmd, i)
-            await asyncio.sleep(self.read_timeout * i + 1)
+                logger.warning("command %s: no reply received on try %s", cmd, i)
+                await asyncio.sleep(self.read_timeout * i + 1)
 
-        return ""
+            return data
+
+    async def send_many(self, cmds: list[str]) -> None:
+        task = asyncio.create_task(self._send_many(cmds))
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
 
     async def cvar(self, name: str) -> Cvar | None:
         data = await self.send(name)
@@ -123,13 +132,18 @@ class RconClient:
         logger.debug("command %s: payload:\n%s", cmd, data)
         return Game.from_string(data)
 
-    def _create_rcon_cmd(self, cmd: str) -> bytes:
-        return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(
-            self.ENCODING
-        )
+    async def _send(self, stream: DatagramClient, cmd: str) -> tuple[str, bool]:
+        rcon_cmd = self._create_rcon_cmd(cmd)
+        await stream.send(rcon_cmd)
+        data, reply_received = await self._receive(stream)
+        return data.decode(self.ENCODING), reply_received
 
-    async def _receive(self) -> tuple[bytearray, bool]:
-        stream = await self.connect()
+    async def _send_many(self, cmds: list[str]) -> None:
+        async with self.connect() as stream:
+            for cmd in cmds:
+                await self._send(stream, cmd)
+
+    async def _receive(self, stream: DatagramClient) -> tuple[bytearray, bool]:
         result = bytearray()
         reply_received = False
         while True:
@@ -145,11 +159,7 @@ class RconClient:
 
         return result, reply_received
 
-
-client = RconClient(
-    host=settings.rcon.host,
-    port=settings.rcon.port,
-    rcon_pass=settings.rcon.password,
-    connect_timeout=settings.rcon.connect_timeout,
-    read_timeout=settings.rcon.read_timeout,
-)
+    def _create_rcon_cmd(self, cmd: str) -> bytes:
+        return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(
+            self.ENCODING
+        )
