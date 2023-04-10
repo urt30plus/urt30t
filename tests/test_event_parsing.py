@@ -17,6 +17,7 @@ def test_event_account_rejected():
     log_event = LogEvent(type="accountrejected", data='19 -  - "no account"')
     e = events.AccountRejected.from_log_event(log_event)
     assert e.slot == "19"
+    assert e.text == '-  - "no account"'
 
 
 def test_event_account_validated():

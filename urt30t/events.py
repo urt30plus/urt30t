@@ -51,11 +51,12 @@ class AccountRejected(GameEvent):
     """0:57 AccountRejected: 19 -  - "no account" """
 
     slot: str
+    text: str
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        slot, _, _ = log_event.data.partition(" ")
-        return cls(game_time=log_event.game_time, slot=slot)
+        slot, _, text = log_event.data.partition(" ")
+        return cls(game_time=log_event.game_time, slot=slot, text=text)
 
 
 @dataclasses.dataclass
