@@ -343,11 +343,6 @@ class SayTell(Say):
 
 
 @dataclasses.dataclass
-class SessionDataInitialised(GameEvent):
-    """3:04 Session data initialised for client on slot 0 at 108069626"""
-
-
-@dataclasses.dataclass
 class ShutdownGame(GameEvent):
     """15:32 ShutdownGame:"""
 

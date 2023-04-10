@@ -295,8 +295,8 @@ def parse_log_line(line: str) -> events.LogEvent:
         event_type = "pop"
         data = ""
     elif event_name.startswith("Session data initialised for client on slot "):
-        event_type = "sessiondatainitialised"
-        data = event_name[44:]
+        event_type = None
+        data = event_name
     elif not event_name.strip("-"):
         event_type = None
         data = ""

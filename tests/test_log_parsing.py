@@ -47,8 +47,8 @@ def test_log_session_data_init():
     e = parse_log_line(
         "  3:01 Session data initialised for client on slot 0 at 203293239"
     )
-    assert e.type == "sessiondatainitialised"
-    assert e.data == "0 at 203293239"
+    assert e.type is None
+    assert e.data == "Session data initialised for client on slot 0 at 203293239"
 
 
 def test_log_separator():
