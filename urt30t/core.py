@@ -160,13 +160,13 @@ class Bot:
             event_queue_done()
 
     async def private_message(self, player: Player, message: str) -> None:
-        await self.rcon.send(f'tell {player.slot} "{message}"', retries=1)
+        await self.rcon.send(f'tell {player.slot} "{message}"')
 
     async def broadcast(self, message: str) -> None:
-        await self.rcon.send(f'"{message}"', retries=1)
+        await self.rcon.send(f'"{message}"')
 
     async def message(self, message: str) -> None:
-        await self.rcon.send(f'say "{message}"', retries=1)
+        await self.rcon.send(f'say "{message}"')
 
     async def sync_game(self) -> None:
         old_game = self.game

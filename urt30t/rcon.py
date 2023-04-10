@@ -87,20 +87,14 @@ class RconClient:
     ) -> None:
         self.close()
 
-    async def send(self, cmd: str, retries: int = 0) -> str:
-        max_range = 2 if retries <= 0 else retries + 2
+    async def send(self, cmd: str, *, retry: bool = False) -> str:
         async with self.connect() as stream:
-            for i in range(1, max_range):
-                data, reply_received = await self._send(stream, cmd)
-                if data:
-                    return data
-                if reply_received:
-                    return ""
+            data, reply_received = await self._send(stream, cmd)
+            if not (data or reply_received) and retry:
+                logger.warning("command %s: no reply received, retrying", cmd)
+                data, _ = await self._send(stream, cmd)
 
-                logger.warning("command %s: no reply received on try %s", cmd, i)
-                await asyncio.sleep(self.read_timeout * i + 1)
-
-            return data
+        return data
 
     async def send_many(self, cmds: list[str]) -> None:
         task = asyncio.create_task(self._send_many(cmds))
@@ -126,9 +120,9 @@ class RconClient:
 
         return Cvar(name=name, value=m["value"], default=default)
 
-    async def game_info(self, *, retries: int = 3) -> Game:
+    async def game_info(self) -> Game:
         cmd = "players"
-        data = await self.send(cmd, retries=retries)
+        data = await self.send(cmd, retry=True)
         logger.debug("command %s: payload:\n%s", cmd, data)
         return Game.from_string(data)
 
