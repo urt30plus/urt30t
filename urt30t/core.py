@@ -112,7 +112,7 @@ class Bot:
             mod = importlib.import_module(mod_path)
             plugin_class = getattr(mod, class_name)
             if not issubclass(plugin_class, BotPlugin):
-                logger.error("%s is not a BotPlugin subclass")
+                logger.error("%s is not a BotPlugin subclass", plugin_class)
             else:
                 plugin_classes.append(plugin_class)
 
