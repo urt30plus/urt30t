@@ -88,7 +88,7 @@ class Bot:
             connect_timeout=settings.rcon.connect_timeout,
             read_timeout=settings.rcon.read_timeout,
         )
-        self.shutdown_event = asyncio.Event()
+        self._cleanup_task: asyncio.Task[None] | None = None
 
     @staticmethod
     def find_command(name: str) -> BotCommandHandler | None:
@@ -175,21 +175,23 @@ class Bot:
         self.game = new_game
 
     async def cleanup_task(self) -> None:
+        fut = asyncio.Future()
         try:
-            await self.shutdown_event.wait()
+            await fut
         except asyncio.CancelledError:
             logger.info("shutdown_event triggered")
             raise
         finally:
             await self.unload_plugins()
             self.rcon.close()
+            await self.scheduler.close()
 
     async def run(self) -> None:
         logger.info("Bot v%s running", __version__)
         await self.scheduler.spawn(
             tail_log_events(settings.bot.games_log, self.events_queue)
         )
-        await self.scheduler.spawn(self.cleanup_task())
+        self._cleanup_task = asyncio.create_task(self.cleanup_task())
         await self.sync_game()
         await self.load_plugins()
         await self.event_dispatcher()
