@@ -9,8 +9,7 @@ def test_event_account_kick():
     )
     e = events.AccountKick.from_log_event(log_event)
     assert e.slot == "13"
-    assert e.name == "[ABC]foobar"
-    assert e.reason == "no account"
+    assert e.text == "[ABC]foobar^7 rejected: no account"
 
 
 def test_event_account_rejected():

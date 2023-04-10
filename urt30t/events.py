@@ -36,14 +36,12 @@ class AccountKick(GameEvent):
     """2:34 AccountKick: 13 - [ABC]foobar^7 rejected: no account"""
 
     slot: str
-    name: str
-    reason: str
+    text: str
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        slot, _, data = log_event.data.partition(" - ")
-        name, _, reason = data.partition("^7 rejected: ")
-        return cls(game_time=log_event.game_time, slot=slot, name=name, reason=reason)
+        slot, _, text = log_event.data.partition(" - ")
+        return cls(game_time=log_event.game_time, slot=slot, text=text)
 
 
 @dataclasses.dataclass
