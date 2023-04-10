@@ -22,14 +22,12 @@ RE_PLAYER = re.compile(
 
 
 class Group(enum.IntEnum):
+    UNKNOWN = -1
     GUEST = 0
     USER = 1
-    REGULAR = 2
+    FRIEND = 10
     MODERATOR = 20
-    ADMIN = 40
-    FULL_ADMIN = 60
-    SENIOR_ADMIN = 80
-    SUPER_ADMIN = 100
+    ADMIN = 100
 
 
 class Team(enum.Enum):
@@ -118,6 +116,7 @@ class Player:
     ip_address: str | None = None
     validated: bool = False
     state: PlayerState = PlayerState.UNKNOWN
+    group: Group = Group.UNKNOWN
 
     @property
     def kills(self) -> int:
