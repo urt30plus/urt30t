@@ -125,7 +125,9 @@ class Bot:
             register_plugin(obj)
 
     async def unload_plugins(self) -> None:
-        await asyncio.wait((p.plugin_unload() for p in _plugins), timeout=5.0)
+        await asyncio.wait(
+            [asyncio.create_task(p.plugin_unload()) for p in _plugins], timeout=5.0
+        )
 
     async def event_dispatcher(self) -> None:
         event_queue_get = self.events_queue.get
