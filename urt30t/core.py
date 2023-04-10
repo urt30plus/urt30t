@@ -175,7 +175,7 @@ class Bot:
         self.game = new_game
 
     async def cleanup_task(self) -> None:
-        fut = asyncio.Future()
+        fut: asyncio.Future[None] = asyncio.Future()
         try:
             await fut
         except asyncio.CancelledError:
