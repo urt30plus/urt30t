@@ -124,6 +124,9 @@ class Bot:
             _plugins.append(obj)
             register_plugin(obj)
 
+    async def unload_plugins(self) -> None:
+        await asyncio.wait((p.plugin_unload() for p in _plugins), timeout=5.0)
+
     async def event_dispatcher(self) -> None:
         event_queue_get = self.events_queue.get
         event_queue_done = self.events_queue.task_done
@@ -170,6 +173,7 @@ class Bot:
             logger.info("shutdown_event triggered")
             raise
         finally:
+            await self.unload_plugins()
             self.rcon.close()
 
     async def run(self) -> None:
