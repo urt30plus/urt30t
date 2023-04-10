@@ -119,11 +119,6 @@ class GameStatePlugin(BotPlugin):
         logger.debug(event)
         await self.bot.disconnect_player(event.slot)
 
-    @staticmethod
-    def _parse_info_string(data: str) -> dict[str, str]:
-        parts = data.lstrip("\\").split("\\")
-        return dict(zip(parts[0::2], parts[1::2], strict=True))
-
 
 class CommandsPlugin(BotPlugin):
     @bot_subscribe
