@@ -142,7 +142,8 @@ class CommandsPlugin(BotPlugin):
 
     @bot_subscribe
     async def on_say_tell(self, event: events.SayTell) -> None:
-        await self.on_say(event)
+        if event.slot == event.target:
+            await self.on_say(event)
 
     @bot_command(level=Group.GUEST)
     async def cmd_help(self, player: Player, data: str | None = None) -> None:
