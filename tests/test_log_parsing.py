@@ -2,7 +2,7 @@ from urt30t.core import parse_log_line
 
 
 def test_log_account_kick():
-    e = parse_log_line("2:34 AccountKick: 13 - [ABC]foobar^7 rejected: no account")
+    e = parse_log_line("  2:34 AccountKick: 13 - [ABC]foobar^7 rejected: no account")
     assert e.type == "accountkick"
     assert e.data == "13 - [ABC]foobar^7 rejected: no account"
 
@@ -14,7 +14,7 @@ def test_log_bomb_dropped():
 
 
 def test_log_bomb_difused():
-    e = parse_log_line(" 6:52 Bomb was defused by 11!")
+    e = parse_log_line("  6:52 Bomb was defused by 11!")
     assert e.type == "bomb"
     assert e.data == "defused by 11!"
 
@@ -79,3 +79,10 @@ def test_log_no_type():
     e = parse_log_line(" 12:33 no type found")
     assert e.type is None
     assert e.data == "no type found"
+
+
+def test_log_long_game_time():
+    e = parse_log_line("1687:13ClientConnect: 8")
+    assert e.type == "clientconnect"
+    assert e.game_time == "1687:13"
+    assert e.data == "8"
