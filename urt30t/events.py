@@ -354,6 +354,26 @@ class ShutdownGame(GameEvent):
 
 
 @dataclasses.dataclass
+class SurvivorWinner(GameEvent):
+    """11403:1SurvivorWinner: Red
+    3:43 SurvivorWinner: 0
+    """
+
+    slot: str | None = None
+    team: Team | None = None
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        if log_event.data.isdigit():
+            slot = log_event.data
+            team = None
+        else:
+            slot = None
+            team = Team[log_event.data.upper()]
+        return cls(game_time=log_event.game_time, slot=slot, team=team)
+
+
+@dataclasses.dataclass
 class TeamScores(GameEvent):
     """15:22 red:8  blue:5"""
 

@@ -75,6 +75,12 @@ def test_log_teams_scores():
     assert e.data == "red:8  blue:5"
 
 
+def test_log_survivor_winner():
+    e = parse_log_line("11403:1SurvivorWinner: Red")
+    assert e.type == "survivorwinner"
+    assert e.data == "Red"
+
+
 def test_log_no_type():
     e = parse_log_line(" 12:33 no type found")
     assert e.type is None

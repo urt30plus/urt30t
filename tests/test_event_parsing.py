@@ -1,6 +1,6 @@
 from urt30t import events
 from urt30t.events import LogEvent
-from urt30t.models import BombAction, KillMode
+from urt30t.models import BombAction, KillMode, Team
 
 
 def test_event_account_kick():
@@ -111,3 +111,17 @@ def test_event_team_scores():
     e = events.TeamScores.from_log_event(log_event)
     assert e.red == 8
     assert e.blue == 5
+
+
+def test_event_survivor_winner_team():
+    log_event = LogEvent("survivorwinner", data="Red")
+    e = events.SurvivorWinner.from_log_event(log_event)
+    assert e.slot is None
+    assert e.team == Team.RED
+
+
+def test_event_survivor_winner_player():
+    log_event = LogEvent("survivorwinner", data="2")
+    e = events.SurvivorWinner.from_log_event(log_event)
+    assert e.slot == "2"
+    assert e.team is None
