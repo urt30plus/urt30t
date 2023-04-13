@@ -277,7 +277,7 @@ def parse_log_line(line: str) -> events.LogEvent:
     the type of event.
     """
     game_time = line[:7].strip()
-    rest = line[7:]
+    rest = line[7:].strip()
     event_name, sep, data = rest.partition(":")
     if sep:
         event_type = event_name.lower().replace(" ", "")
