@@ -129,17 +129,19 @@ class RconClient:
     async def _send(self, stream: DatagramClient, cmd: str) -> tuple[str, bool]:
         rcon_cmd = self._create_rcon_cmd(cmd)
         await stream.send(rcon_cmd)
-        data, reply_received = await self._receive(stream)
-        return data.decode(self.ENCODING), reply_received
+        data, count = await self._receive(stream)
+        if count > 1:
+            logger.info("multiple packets received for: %s", cmd)
+        return data.decode(self.ENCODING), count > 0
 
     async def _send_many(self, cmds: list[str]) -> None:
         async with self.connect() as stream:
             for cmd in cmds:
                 await self._send(stream, cmd)
 
-    async def _receive(self, stream: DatagramClient) -> tuple[bytearray, bool]:
+    async def _receive(self, stream: DatagramClient) -> tuple[bytearray, int]:
         result = bytearray()
-        reply_received = False
+        receive_count = 0
         while True:
             try:
                 data, _ = await asyncio.wait_for(
@@ -147,11 +149,11 @@ class RconClient:
                     timeout=self.read_timeout,
                 )
                 result += data.replace(self.REPLY_PREFIX, b"", 1)
-                reply_received = True
+                receive_count += 1
             except asyncio.TimeoutError:
                 break
 
-        return result, reply_received
+        return result, receive_count
 
     def _create_rcon_cmd(self, cmd: str) -> bytes:
         return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(
