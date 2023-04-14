@@ -33,6 +33,7 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     event_queue_max_size: int = 100
     plugins: list[str] = []
     log_read_delay: float = 0.250
+    log_check_truncated: bool = False
 
 
 class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
