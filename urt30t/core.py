@@ -239,13 +239,14 @@ def bot_subscribe(f: _T) -> _T:
 
 async def tail_log_events(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
     logger.info("Parsing game log file %s", log_file)
+    read_delay = settings.bot.log_read_delay
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         cur_pos = await fp.seek(0, os.SEEK_END)
         logger.info("Log file current position: %s", cur_pos)
         # signal that we are ready and wait for the event dispatcher to start
         await q.put(events.LogEvent())
         await q.join()
-        while await asyncio.sleep(0.250, result=True):
+        while await asyncio.sleep(read_delay, result=True):
             if not (lines := await fp.readlines()):
                 # No lines found so check to see if we need to reset our position.
                 # Compare the current cursor position against the current file size,
