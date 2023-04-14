@@ -185,7 +185,7 @@ class GameState(enum.Enum):
 @dataclasses.dataclass
 class Game:
     type: GameType = GameType.UNKNOWN
-    time: str = "00:00:00"
+    time: str = "0:00"
     map_name: str = "Unknown"
     state: GameState = GameState.UNKNOWN
     match_mode: bool = False

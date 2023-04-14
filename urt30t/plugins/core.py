@@ -21,9 +21,13 @@ class GameStatePlugin(BotPlugin):
     @bot_subscribe
     async def on_init_game(self, event: events.InitGame) -> None:
         logger.debug(event)
-        self.bot.game.type = GameType(event.game_data["g_gametype"])
-        self.bot.game.map_name = event.game_data["mapname"]
-        # TODO: what about cap/frag/time limit and match mode?
+        game = self.bot.game
+        data = event.game_data
+        game.type = GameType(data["g_gametype"])
+        game.time = event.game_time
+        game.scores = None
+        game.map_name = data["mapname"]
+        game.match_mode = data.get("g_matchmode", "0") != "0"
 
     @bot_subscribe
     async def on_warmup(self, event: events.Warmup) -> None:
