@@ -47,6 +47,12 @@ class BombAction(enum.Enum):
     TOSSED = "tossed"
 
 
+class FlagAction(enum.Enum):
+    DROPPED = "0"
+    RETURNED = "1"
+    CAPTURED = "2"
+
+
 class KillMode(enum.Enum):
     WATER = "1"
     LAVA = "3"

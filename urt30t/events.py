@@ -1,7 +1,7 @@
 import dataclasses
 from typing import NamedTuple, Self
 
-from .models import BombAction, KillMode, Team
+from .models import BombAction, FlagAction, KillMode, Team
 
 
 class LogEvent(NamedTuple):
@@ -193,6 +193,28 @@ class Exit(GameEvent):
 @dataclasses.dataclass
 class Flag(GameEvent):
     """0:46 Flag: 0 2: team_CTF_redflag"""
+
+    slot: str
+    action: FlagAction
+    team: Team
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        slots, _, flag = log_event.data.partition(":")
+        slot, action = slots.split(" ")
+        flag = flag.strip()
+        if flag == "team_CTF_redflag":
+            team = Team.RED
+        elif flag == "team_CTF_blueflag":
+            team = Team.BLUE
+        else:
+            raise ValueError(flag)
+        return cls(
+            game_time=log_event.game_time,
+            slot=slot,
+            action=FlagAction(action),
+            team=team,
+        )
 
 
 @dataclasses.dataclass
