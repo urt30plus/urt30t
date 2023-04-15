@@ -90,14 +90,9 @@ class Bot:
             raise RuntimeError("rcon_client_not_set")
         return self._rcon
 
-    @staticmethod
-    def find_command(name: str) -> BotCommandHandler | None:
-        if handler := _command_handlers.get(name):
-            return handler
-        for handler in _command_handlers.values():
-            if handler.command.alias == name:
-                return handler
-        return None
+    @property
+    def commands(self) -> dict[str, BotCommandHandler]:
+        return _command_handlers
 
     def find_player(self, slot: str) -> Player | None:
         return self.game.players.get(slot)

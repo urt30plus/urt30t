@@ -1,6 +1,8 @@
+import difflib
 import logging
 
 from urt30t import (
+    Bot,
     BotCommandHandler,
     BotPlugin,
     GameState,
@@ -122,39 +124,18 @@ class GameStatePlugin(BotPlugin):
         logger.debug(event)
         await self.bot.disconnect_player(event.slot)
 
-    @bot_subscribe
-    async def on_say(self, event: events.Say) -> None:
-        if not event.text.startswith("!"):
-            return
-        logger.info(event)
-        command, data = self._lookup_command(event.text)
-        if command:
-            if player := self.bot.find_player(event.slot):
-                # TODO: check if client has permission to exec command
-                await command.handler(player, data)
-            else:
-                logger.warning("slot %s no longer connected: %s", event.slot, command)
-        else:
-            logger.warning("no command found: %s", event)
-
-    @bot_subscribe
-    async def on_say_team(self, event: events.SayTeam) -> None:
-        await self.on_say(event)
-
-    @bot_subscribe
-    async def on_say_tell(self, event: events.SayTell) -> None:
-        if event.slot == event.target:
-            await self.on_say(event)
-
-    def _lookup_command(self, text: str) -> tuple[BotCommandHandler | None, str | None]:
-        if text.startswith("!") and len(text) > 1:
-            cmd, _, data = text[1:].partition(" ")
-            handler = self.bot.find_command(cmd)
-            return handler, data
-        return None, None
-
 
 class CommandsPlugin(BotPlugin):
+    def __init__(self, bot: Bot) -> None:
+        super().__init__(bot)
+        self.commands_by_group: dict[str, Group] = {}
+
+    async def plugin_load(self) -> None:
+        for cmd in self.bot.commands.values():
+            self.commands_by_group[cmd.command.name] = cmd.command.level
+            if cmd.command.alias:
+                self.commands_by_group[cmd.command.alias] = cmd.command.level
+
     @bot_command(Group.ADMIN, alias="bal")
     async def balance(self, player: Player, data: str | None = None) -> None:
         raise NotImplementedError
@@ -191,14 +172,20 @@ class CommandsPlugin(BotPlugin):
         # TODO: get list of commands available to the player that issued command
         #   or make sure the user has access to the target command
         if data:
-            if cmd := self.bot.find_command(data):
+            if cmd := self._find_command(data):
                 message = f'"{cmd.handler.__doc__}"'
             else:
                 message = f"command [{data}] not found"
         else:
-            message = "you asked for a list of all commands?"
+            message = f"there are {len(self.bot.commands)} commands total"
 
         await self.bot.rcon.private_message(player.slot, message)
+
+    @bot_command(Group.GUEST, alias="lt")
+    async def leveltest(self, player: Player, data: str | None = None) -> None:
+        # TODO: handle cases where data is another user to test
+        logger.debug(data)
+        await self.bot.rcon.private_message(player.slot, f"{player.group.name}")
 
     @bot_command(level=Group.ADMIN)
     async def map_restart(self, player: Player, _: str | None = None) -> None:
@@ -263,3 +250,56 @@ class CommandsPlugin(BotPlugin):
     @bot_command(Group.ADMIN)
     async def veto(self, player: Player, data: str | None = None) -> None:
         raise NotImplementedError
+
+    @bot_subscribe
+    async def on_say(self, event: events.Say) -> None:
+        if not event.text.startswith("!"):
+            return
+        logger.info(event)
+        cmd, _, data = event.text[1:].partition(" ")
+        command = self._find_command(cmd)
+        if not (player := self.bot.find_player(event.slot)):
+            logger.warning("no player found at: %s", event.slot)
+            return
+        if command:
+            await command.handler(player, data)
+        else:
+            logger.warning("no command found: %s", event)
+            if candidates := self._find_command_sounds_like(player.group, cmd):
+                msg = f"did you mean? {', '.join(candidates)}"
+            else:
+                msg = f"command [{cmd}] not found"
+            await self.bot.rcon.private_message(player.slot, msg)
+
+    @bot_subscribe
+    async def on_say_team(self, event: events.SayTeam) -> None:
+        await self.on_say(event)
+
+    @bot_subscribe
+    async def on_say_tell(self, event: events.SayTell) -> None:
+        if event.slot == event.target:
+            await self.on_say(event)
+
+    def _find_command(self, cmd: str) -> BotCommandHandler | None:
+        if handler := self.bot.commands.get(cmd):
+            return handler
+        for ch in self.bot.commands.values():
+            if ch.command.alias == cmd:
+                return ch
+        return None
+
+    def _find_command_sounds_like(self, group: Group, cmd: str) -> set[str]:
+        if len(cmd) < 2:
+            return set()
+
+        result = {
+            name
+            for name, level in self.commands_by_group.items()
+            if cmd in name and level <= group
+        }
+
+        # catch misspellings
+        if more := difflib.get_close_matches(cmd, self.commands_by_group):
+            result.update(x for x in more if self.commands_by_group[x] <= group)
+
+        return result
