@@ -18,7 +18,7 @@ class SharedSettings(BaseSettings):
 class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
     level_root: str = "WARNING"
     level_bot: str = "INFO"
-    level_async_dgram: str = "ERROR"
+    level_bot_rcon: str = "INFO"
     level_discord: str = "WARNING"
 
 
@@ -40,8 +40,7 @@ class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
     host: str = "127.0.0.1"
     port: int = 27960
     password: str = Required
-    connect_timeout: float = 0.800
-    read_timeout: float = 0.220
+    recv_timeout: float = 0.220
 
 
 bot = BotSettings()
@@ -53,5 +52,5 @@ logging.basicConfig(
 )
 logging.getLogger().setLevel(log.level_root)
 logging.getLogger("urt30t").setLevel(log.level_bot)
-logging.getLogger("asyncio_dgram").setLevel(log.level_async_dgram)
+logging.getLogger("urt30t.rcon").setLevel(log.level_bot_rcon)
 logging.getLogger("discord").setLevel(log.level_discord)

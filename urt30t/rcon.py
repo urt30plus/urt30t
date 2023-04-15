@@ -1,18 +1,16 @@
 import asyncio
-import contextlib
 import logging
 import re
-from collections.abc import AsyncIterator
-from types import TracebackType
-from typing import Self
+from asyncio.transports import DatagramTransport
+from typing import Any, cast
 
-import asyncio_dgram
-from asyncio_dgram.aio import DatagramClient
-
-from . import settings
 from .models import Cvar, Game
 
 logger = logging.getLogger(__name__)
+
+CMD_PREFIX = b"\xff" * 4
+REPLY_PREFIX = CMD_PREFIX + b"print\n"
+ENCODING = "latin-1"
 
 _CVAR_PATTERNS = (
     # "sv_maxclients" is:"16^7" default:"8^7"
@@ -38,71 +36,62 @@ _CVAR_PATTERNS = (
 )
 
 
-class RconError(Exception):
-    pass
+class _Protocol(asyncio.DatagramProtocol):
+    def __init__(self, recv_q: asyncio.Queue[bytes], pause: asyncio.Event) -> None:
+        self.recv_q = recv_q
+        self.pause = pause
+        self.transport: DatagramTransport | None = None
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        logger.debug(transport)
+        self.transport = cast(DatagramTransport, transport)
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        if exc is None:
+            logger.info("Connection closed")
+        else:
+            logger.exception(exc)
+        if size := self.recv_q.qsize():
+            logger.warning("Receive queue has pending items: %s", size)
+        if self.transport:
+            self.transport.close()
+
+    def datagram_received(self, data: bytes, _: tuple[str | Any, int]) -> None:
+        self.recv_q.put_nowait(data)
+
+    def error_received(self, exc: Exception) -> None:
+        logger.exception(exc)
+
+    def pause_writing(self) -> None:
+        self.pause.clear()
+        super().pause_writing()
+
+    def resume_writing(self) -> None:
+        self.pause.set()
+        super().resume_writing()
 
 
 class RconClient:
-    CMD_PREFIX = b"\xff" * 4
-    REPLY_PREFIX = CMD_PREFIX + b"print\n"
-    ENCODING = "latin-1"
-
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
-        host: str,
-        port: int,
-        rcon_pass: str,
-        connect_timeout: float = settings.rcon.connect_timeout,
-        read_timeout: float = settings.rcon.read_timeout,
+        password: bytes,
+        transport: DatagramTransport,
+        recv_q: asyncio.Queue[bytes],
+        recv_timeout: float,
     ) -> None:
-        self.host = host
-        self.port = port
-        self.rcon_pass = rcon_pass
-        self.connect_timeout = connect_timeout
-        self.read_timeout = read_timeout
-        self.stream: DatagramClient | None = None
-        self.lock = asyncio.Lock()
-        self.tasks: set[asyncio.Task[None]] = set()
+        self.password = password
+        self.transport = transport
+        self.recv_q = recv_q
+        self.recv_timeout = recv_timeout
 
-    @contextlib.asynccontextmanager
-    async def connect(self) -> AsyncIterator[DatagramClient]:
-        if self.stream is None:
-            logger.info("connecting stream to %s:%s", self.host, self.port)
-            self.stream = await asyncio_dgram.connect((self.host, self.port))
-        async with self.lock:
-            yield self.stream
+    async def broadcast(self, message: str) -> None:
+        await self._send(f'"{message}"')
 
     def close(self) -> None:
-        if self.stream is not None:
-            self.stream.close()
-
-    async def __aenter__(self) -> Self:
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException,
-        exc_tb: TracebackType,
-    ) -> None:
-        self.close()
-
-    async def send(self, cmd: str, *, retry: bool = False) -> str:
-        async with self.connect() as stream:
-            data, reply_received = await self._send(stream, cmd)
-            if not (data or reply_received) and retry:
-                logger.warning("command %s: no reply received, retrying", cmd)
-                data, _ = await self._send(stream, cmd)
-
-        return data
-
-    async def send_many(self, cmds: list[str]) -> None:
-        task = asyncio.create_task(self._send_many(cmds))
-        self.tasks.add(task)
-        task.add_done_callback(self.tasks.discard)
+        self.transport.close()
 
     async def cvar(self, name: str) -> Cvar | None:
-        data = await self.send(name)
+        data = await self._send(name.encode(encoding=ENCODING))
         for pat in _CVAR_PATTERNS:
             if m := pat.match(data):
                 break
@@ -120,42 +109,57 @@ class RconClient:
 
         return Cvar(name=name, value=m["value"], default=default)
 
-    async def game_info(self) -> Game:
-        cmd = "players"
-        data = await self.send(cmd, retry=True)
-        logger.debug("command %s: payload:\n%s", cmd, data)
+    async def map_restart(self) -> None:
+        await self._send(b"map_restart")
+
+    async def message(self, message: str) -> None:
+        await self._send(f'say "{message}"')
+
+    async def players(self) -> Game:
+        data = await self._send(b"players")
         return Game.from_string(data)
 
-    async def _send(self, stream: DatagramClient, cmd: str) -> tuple[str, bool]:
-        rcon_cmd = self._create_rcon_cmd(cmd)
-        await stream.send(rcon_cmd)
-        data, count = await self._receive(stream)
-        if count > 1:
-            logger.info("multiple packets received for: %s", cmd)
-        return data.decode(self.ENCODING), count > 0
+    async def private_message(self, slot: str, message: str) -> None:
+        await self._send(f'tell {slot} "{message}"')
 
-    async def _send_many(self, cmds: list[str]) -> None:
-        async with self.connect() as stream:
-            for cmd in cmds:
-                await self._send(stream, cmd)
+    async def reload(self) -> None:
+        await self._send(b"reload")
 
-    async def _receive(self, stream: DatagramClient) -> tuple[bytearray, int]:
-        result = bytearray()
-        receive_count = 0
-        while True:
+    async def _send(self, cmd: str | bytes, retries: int = 0) -> str:
+        if isinstance(cmd, str):
+            cmd = cmd.encode(encoding=ENCODING)
+        cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self.password, cmd)
+        attempts = 1 + retries
+        while attempts:
+            attempts -= 1
+            self.transport.sendto(cmd)
             try:
-                data, _ = await asyncio.wait_for(
-                    stream.recv(),
-                    timeout=self.read_timeout,
+                data = await asyncio.wait_for(
+                    self.recv_q.get(), timeout=self.recv_timeout
                 )
-                result += data.replace(self.REPLY_PREFIX, b"", 1)
-                receive_count += 1
+                if not data.startswith(REPLY_PREFIX):
+                    logger.error("invalid reply for command: %r - %r", cmd, data)
+                    break
+                return data.replace(REPLY_PREFIX, b"", 1).decode(encoding=ENCODING)
             except asyncio.TimeoutError:
-                break
+                pass
 
-        return result, receive_count
+        return ""
 
-    def _create_rcon_cmd(self, cmd: str) -> bytes:
-        return self.CMD_PREFIX + f'rcon "{self.rcon_pass}" {cmd}\n'.encode(
-            self.ENCODING
-        )
+
+async def create_client(
+    host: str, port: int, password: str, recv_timeout: float = 0.2
+) -> RconClient:
+    loop = asyncio.get_running_loop()
+
+    recv_q = asyncio.Queue[bytes]()
+    pause = asyncio.Event()
+
+    transport: asyncio.DatagramTransport
+    transport, proto = await loop.create_datagram_endpoint(
+        lambda: _Protocol(recv_q, pause), remote_addr=(host, port)
+    )
+
+    return RconClient(
+        password.encode(encoding=ENCODING), transport, recv_q, recv_timeout
+    )

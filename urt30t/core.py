@@ -81,14 +81,14 @@ class Bot:
         self.events_queue = asyncio.Queue[events.LogEvent](
             settings.bot.event_queue_max_size
         )
-        self.rcon = rcon.RconClient(
-            host=settings.rcon.host,
-            port=settings.rcon.port,
-            rcon_pass=settings.rcon.password,
-            connect_timeout=settings.rcon.connect_timeout,
-            read_timeout=settings.rcon.read_timeout,
-        )
+        self._rcon: rcon.RconClient | None = None
         self._cleanup_task: asyncio.Task[None] | None = None
+
+    @property
+    def rcon(self) -> rcon.RconClient:
+        if self._rcon is None:
+            raise RuntimeError("rcon_client_not_set")
+        return self._rcon
 
     @staticmethod
     def find_command(name: str) -> BotCommandHandler | None:
@@ -159,18 +159,9 @@ class Bot:
 
             event_queue_done()
 
-    async def private_message(self, player: Player, message: str) -> None:
-        await self.rcon.send(f'tell {player.slot} "{message}"')
-
-    async def broadcast(self, message: str) -> None:
-        await self.rcon.send(f'"{message}"')
-
-    async def message(self, message: str) -> None:
-        await self.rcon.send(f'say "{message}"')
-
     async def sync_game(self) -> None:
         old_game = self.game
-        new_game = await self.rcon.game_info()
+        new_game = await self.rcon.players()
         logger.debug("Game state: %r --> %r", old_game, new_game)
         self.game = new_game
 
@@ -188,6 +179,12 @@ class Bot:
 
     async def run(self) -> None:
         logger.info("Bot v%s running", __version__)
+        self._rcon = await rcon.create_client(
+            host=settings.rcon.host,
+            port=settings.rcon.port,
+            password=settings.rcon.password,
+            recv_timeout=settings.rcon.recv_timeout,
+        )
         await self.scheduler.spawn(
             tail_log_events(settings.bot.games_log, self.events_queue)
         )

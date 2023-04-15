@@ -162,7 +162,17 @@ class CommandsPlugin(BotPlugin):
         else:
             message = "you asked for a list of all commands?"
 
-        await self.bot.private_message(player, message)
+        await self.bot.rcon.private_message(player.slot, message)
+
+    @bot_command(level=Group.ADMIN)
+    async def cmd_map_restart(self, player: Player, _: str | None = None) -> None:
+        assert player
+        await self.bot.rcon.map_restart()
+
+    @bot_command(level=Group.ADMIN)
+    async def cmd_reload(self, player: Player, _: str | None = None) -> None:
+        assert player
+        await self.bot.rcon.reload()
 
     def _lookup_command(self, text: str) -> tuple[BotCommandHandler | None, str | None]:
         if text.startswith("!") and len(text) > 1:
