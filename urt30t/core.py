@@ -130,9 +130,11 @@ class Bot:
 
         for cls in plugin_classes:
             obj = cls(bot=self)
-            await obj.plugin_load()
-            _plugins.append(obj)
             register_plugin(obj)
+            _plugins.append(obj)
+
+        for p in _plugins:
+            await p.plugin_load()
 
     async def unload_plugins(self) -> None:
         await asyncio.wait(
