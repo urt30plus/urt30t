@@ -109,6 +109,15 @@ class Bot:
         with contextlib.suppress(KeyError):
             del self.game.players[slot]
 
+    async def sync_player(self, slot: str) -> Player:
+        if not (player := self.find_player(slot)):
+            raise RuntimeError(slot)
+        # TODO: load/save info from/to db
+        # TODO: check for bans
+        if player.group is Group.UNKNOWN:
+            player.group = Group.GUEST
+        return player
+
     async def load_plugins(self) -> None:
         plugins_specs = [*_core_plugins, *settings.bot.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
@@ -162,8 +171,11 @@ class Bot:
     async def sync_game(self) -> None:
         old_game = self.game
         new_game = await self.rcon.players()
-        logger.debug("Game state: %r --> %r", old_game, new_game)
         self.game = new_game
+        await asyncio.gather(
+            *[self.sync_player(p.slot) for p in new_game.players.values()]
+        )
+        logger.debug("Game state: %r --> %r", old_game, new_game)
 
     async def cleanup_task(self) -> None:
         fut: asyncio.Future[None] = asyncio.Future()

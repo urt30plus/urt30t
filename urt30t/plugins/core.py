@@ -109,8 +109,7 @@ class GameStatePlugin(BotPlugin):
     @bot_subscribe
     async def on_client_begin(self, event: events.ClientBegin) -> None:
         logger.debug(event)
-        # TODO: good time to load/save info to db?
-        # TODO: check for bans
+        await self.bot.sync_player(event.slot)
 
     @bot_subscribe
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
