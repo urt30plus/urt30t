@@ -109,6 +109,9 @@ class RconClient:
 
         return Cvar(name=name, value=m["value"], default=default)
 
+    async def cycle_map(self) -> None:
+        await self._send(b"cyclemap")
+
     async def map_restart(self) -> None:
         await self._send(b"map_restart")
 
@@ -124,6 +127,12 @@ class RconClient:
 
     async def reload(self) -> None:
         await self._send(b"reload")
+
+    async def shuffle_teams(self) -> None:
+        await self._send(b"shuffleteams")
+
+    async def swap_teams(self) -> None:
+        await self._send(b"swapteams")
 
     async def _send(self, cmd: str | bytes, retries: int = 0) -> str:
         if isinstance(cmd, str):

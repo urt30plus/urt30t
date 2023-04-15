@@ -123,8 +123,6 @@ class GameStatePlugin(BotPlugin):
         logger.debug(event)
         await self.bot.disconnect_player(event.slot)
 
-
-class CommandsPlugin(BotPlugin):
     @bot_subscribe
     async def on_say(self, event: events.Say) -> None:
         if not event.text.startswith("!"):
@@ -149,8 +147,47 @@ class CommandsPlugin(BotPlugin):
         if event.slot == event.target:
             await self.on_say(event)
 
+    def _lookup_command(self, text: str) -> tuple[BotCommandHandler | None, str | None]:
+        if text.startswith("!") and len(text) > 1:
+            cmd, _, data = text[1:].partition(" ")
+            handler = self.bot.find_command(cmd)
+            return handler, data
+        return None, None
+
+
+class CommandsPlugin(BotPlugin):
+    @bot_command(Group.ADMIN, alias="bal")
+    async def balance(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def bigtext(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def caplimit(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.MODERATOR)
+    async def ci(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def cyclemap(self, player: Player, data: str | None = None) -> None:
+        assert player
+        assert not data
+        await self.bot.rcon.cycle_map()
+
+    @bot_command(Group.MODERATOR)
+    async def force(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def fraglimit(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
     @bot_command(level=Group.GUEST)
-    async def cmd_help(self, player: Player, data: str | None = None) -> None:
+    async def help(self, player: Player, data: str | None = None) -> None:  # noqa: A003
         """Provides a list of commands available."""
         # TODO: get list of commands available to the player that issued command
         #   or make sure the user has access to the target command
@@ -165,18 +202,65 @@ class CommandsPlugin(BotPlugin):
         await self.bot.rcon.private_message(player.slot, message)
 
     @bot_command(level=Group.ADMIN)
-    async def cmd_map_restart(self, player: Player, _: str | None = None) -> None:
+    async def map_restart(self, player: Player, _: str | None = None) -> None:
         assert player
         await self.bot.rcon.map_restart()
 
     @bot_command(level=Group.ADMIN)
-    async def cmd_reload(self, player: Player, _: str | None = None) -> None:
+    async def moon(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.MODERATOR)
+    async def mute(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.ADMIN)
+    async def nuke(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.ADMIN)
+    async def pause(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.ADMIN)
+    async def reload(self, player: Player, _: str | None = None) -> None:
         assert player
         await self.bot.rcon.reload()
 
-    def _lookup_command(self, text: str) -> tuple[BotCommandHandler | None, str | None]:
-        if text.startswith("!") and len(text) > 1:
-            cmd, _, data = text[1:].partition(" ")
-            handler = self.bot.find_command(cmd)
-            return handler, data
-        return None, None
+    @bot_command(level=Group.ADMIN)
+    async def setnextmap(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.ADMIN)
+    async def shuffleteams(self, player: Player, _: str | None = None) -> None:
+        assert player
+        await self.bot.rcon.shuffle_teams()
+
+    @bot_command(Group.ADMIN, alias="sk")
+    async def skuffle(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.ADMIN)
+    async def slap(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.MODERATOR)
+    async def swap(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(level=Group.ADMIN)
+    async def swapteams(self, player: Player, _: str | None = None) -> None:
+        assert player
+        await self.bot.rcon.swap_teams()
+
+    @bot_command(Group.USER)
+    async def teams(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def timelimit(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def veto(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
