@@ -119,7 +119,7 @@ class RconClient:
         await self._send(f'say "{message}"')
 
     async def players(self) -> Game:
-        data = await self._send(b"players")
+        data = await self._send(b"players", retry=True)
         return Game.from_string(data)
 
     async def private_message(self, slot: str, message: str) -> None:
@@ -134,24 +134,21 @@ class RconClient:
     async def swap_teams(self) -> None:
         await self._send(b"swapteams")
 
-    async def _send(self, cmd: str | bytes, retries: int = 0) -> str:
+    async def _send(self, cmd: str | bytes, *, retry: bool = False) -> str:
         if isinstance(cmd, str):
             cmd = cmd.encode(encoding=ENCODING)
         cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self.password, cmd)
-        attempts = 1 + retries
-        while attempts:
-            attempts -= 1
-            self.transport.sendto(cmd)
-            try:
-                data = await asyncio.wait_for(
-                    self.recv_q.get(), timeout=self.recv_timeout
-                )
-                if not data.startswith(REPLY_PREFIX):
-                    logger.error("invalid reply for command: %r - %r", cmd, data)
-                    break
+        self.transport.sendto(cmd)
+        try:
+            data = await asyncio.wait_for(self.recv_q.get(), timeout=self.recv_timeout)
+            if data.startswith(REPLY_PREFIX):
                 return data.replace(REPLY_PREFIX, b"", 1).decode(encoding=ENCODING)
-            except asyncio.TimeoutError:
-                pass
+            logger.error("invalid reply for command: %r - %r", cmd, data)
+        except asyncio.TimeoutError:
+            pass
+
+        if retry:
+            return await self._send(cmd, retry=False)
 
         return ""
 
