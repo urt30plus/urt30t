@@ -37,9 +37,12 @@ _CVAR_PATTERNS = (
 
 
 class _Protocol(asyncio.DatagramProtocol):
-    def __init__(self, recv_q: asyncio.Queue[bytes], pause: asyncio.Event) -> None:
+    def __init__(
+        self, recv_q: asyncio.Queue[bytes], buffer_free: asyncio.Event
+    ) -> None:
+        buffer_free.set()
         self.recv_q = recv_q
-        self.pause = pause
+        self.buffer_free = buffer_free
         self.transport: DatagramTransport | None = None
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -63,12 +66,10 @@ class _Protocol(asyncio.DatagramProtocol):
         logger.exception(exc)
 
     def pause_writing(self) -> None:
-        self.pause.clear()
-        super().pause_writing()
+        self.buffer_free.clear()
 
     def resume_writing(self) -> None:
-        self.pause.set()
-        super().resume_writing()
+        self.buffer_free.set()
 
 
 class RconClient:
@@ -78,11 +79,13 @@ class RconClient:
         transport: DatagramTransport,
         recv_q: asyncio.Queue[bytes],
         recv_timeout: float,
+        buffer_free: asyncio.Event,
     ) -> None:
         self.password = password
         self.transport = transport
         self.recv_q = recv_q
         self.recv_timeout = recv_timeout
+        self.buffer_free = buffer_free
 
     async def broadcast(self, message: str) -> None:
         await self._send(f'"{message}"')
@@ -139,6 +142,7 @@ class RconClient:
             cmd = cmd.encode(encoding=ENCODING)
         cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self.password, cmd)
         self.transport.sendto(cmd)
+        await self.buffer_free.wait()
         try:
             data = await asyncio.wait_for(self.recv_q.get(), timeout=self.recv_timeout)
             if data.startswith(REPLY_PREFIX):
@@ -165,13 +169,13 @@ async def create_client(
     loop = asyncio.get_running_loop()
 
     recv_q = asyncio.Queue[bytes]()
-    pause = asyncio.Event()
+    buffer_free = asyncio.Event()
 
     transport: asyncio.DatagramTransport
     transport, proto = await loop.create_datagram_endpoint(
-        lambda: _Protocol(recv_q, pause), remote_addr=(host, port)
+        lambda: _Protocol(recv_q, buffer_free), remote_addr=(host, port)
     )
 
     return RconClient(
-        password.encode(encoding=ENCODING), transport, recv_q, recv_timeout
+        password.encode(encoding=ENCODING), transport, recv_q, recv_timeout, buffer_free
     )
