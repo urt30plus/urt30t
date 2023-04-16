@@ -2,9 +2,10 @@
 Bot settings and configuration.
 """
 import logging
+import zoneinfo
 from pathlib import Path
 
-from pydantic import BaseSettings, Required
+from pydantic import BaseSettings, Required, validator
 
 BASE_PATH = Path(__file__).parent.parent
 
@@ -24,9 +25,9 @@ class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
 
 class BotSettings(SharedSettings, env_prefix="URT30T_"):
     name: str = "30+Bot"
-    prefix: str = "^0(^230+Bot^0)^7:"
+    message_prefix: str = "^0(^230+Bot^0)^7:"
     time_format: str = "%I:%M%p %Z %m/%d/%y"
-    time_zone: str = "UTC"
+    time_zone: zoneinfo.ZoneInfo = zoneinfo.ZoneInfo("UTC")
     games_log: Path = Required
     # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
     db_url: str = Required
@@ -34,6 +35,12 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     plugins: list[str] = []
     log_read_delay: float = 0.250
     log_check_truncated: bool = False
+
+    @validator("time_zone", pre=True)
+    def _time_zone_validate(cls, v: str | zoneinfo.ZoneInfo) -> zoneinfo.ZoneInfo:
+        if isinstance(v, zoneinfo.ZoneInfo):
+            return v
+        return zoneinfo.ZoneInfo(v)
 
 
 class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):

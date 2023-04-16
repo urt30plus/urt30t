@@ -66,9 +66,10 @@ class BotCommand(NamedTuple):
 
 class Bot:
     def __init__(self) -> None:
-        self._started_at = datetime.datetime.now(tz=datetime.UTC)
+        self.conf = settings.bot
+        self._started_at = datetime.datetime.now(tz=self.conf.time_zone)
         self._events_queue = asyncio.Queue[events.LogEvent](
-            settings.bot.event_queue_max_size
+            self.conf.event_queue_max_size
         )
         self._rcon: rcon.RconClient | None = None
         self._plugins: list[BotPlugin] = []
@@ -89,7 +90,14 @@ class Bot:
         )
         logger.info(self._rcon)
         self.background_task(self._run_cleanup())
-        self.background_task(_tail_log(settings.bot.games_log, self._events_queue))
+        self.background_task(
+            _tail_log(
+                log_file=self.conf.games_log,
+                event_queue=self._events_queue,
+                read_delay=self.conf.log_read_delay,
+                check_truncated=self.conf.log_check_truncated,
+            )
+        )
 
         await self.sync_game()
         await self._load_plugins()
@@ -163,7 +171,7 @@ class Bot:
             event_queue_done()
 
     async def _load_plugins(self) -> None:
-        plugins_specs = [*_core_plugins, *settings.bot.plugins]
+        plugins_specs = [*_core_plugins, *self.conf.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
         plugin_classes: list[type[BotPlugin]] = []
         for spec in plugins_specs:
@@ -248,10 +256,14 @@ def bot_subscribe(f: _T) -> _T:
     raise TypeError
 
 
-async def _tail_log(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
+async def _tail_log(
+    log_file: Path,
+    *,
+    event_queue: asyncio.Queue[events.LogEvent],
+    read_delay: float,
+    check_truncated: bool,
+) -> None:
     logger.info("Parsing game log file %s", log_file)
-    read_delay = settings.bot.log_read_delay
-    check_truncated = settings.bot.log_check_truncated
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
         cur_pos = await fp.seek(0, os.SEEK_END)
         logger.info(
@@ -261,8 +273,8 @@ async def _tail_log(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
             cur_pos,
         )
         # signal that we are ready and wait for the event dispatcher to start
-        await q.put(events.LogEvent())
-        await q.join()
+        await event_queue.put(events.LogEvent())
+        await event_queue.join()
         while await asyncio.sleep(read_delay, result=True):
             if not (lines := await fp.readlines()):
                 if not check_truncated:
@@ -284,7 +296,7 @@ async def _tail_log(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
                     lines = await fp.readlines()
 
             for line in lines:
-                await q.put(parse_log_line(line))
+                await event_queue.put(parse_log_line(line))
 
 
 def parse_log_line(line: str) -> events.LogEvent:

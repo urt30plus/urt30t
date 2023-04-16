@@ -46,5 +46,8 @@ ignore = ["PLR2004", "PT018", "S101"]  # Use of assert
 [tool.ruff.flake8-builtins]
 builtins-ignorelist = ["id", "type"]
 
+[tool.ruff.pep8-naming]
+classmethod-decorators = ["pydantic.validator"]
+
 [tool.ruff.pylint]
 max-args = 8
