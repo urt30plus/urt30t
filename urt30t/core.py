@@ -74,15 +74,19 @@ class BotCommand(NamedTuple):
     async def message(
         self, message: str, message_type: MessageType | None = None
     ) -> None:
-        # TODO: handle message prefixes and wrapping
+        prefix = self.plugin.bot.conf.message_prefix + " "
+        # TODO: handle wrapping
         if message_type is None:
             message_type = self.message_type
         if message_type is MessageType.PRIVATE:
-            await self.plugin.bot.rcon.private_message(self.player.slot, message)
+            prefix += "^8[pm]^7 "
+            await self.plugin.bot.rcon.private_message(
+                self.player.slot, prefix + message
+            )
         elif message_type is MessageType.LOUD:
-            await self.plugin.bot.rcon.message(message)
+            await self.plugin.bot.rcon.message(prefix + message)
         else:
-            await self.plugin.bot.rcon.bigtext(message)
+            await self.plugin.bot.rcon.bigtext(prefix + message)
 
 
 class Bot:
