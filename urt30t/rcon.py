@@ -41,35 +41,35 @@ class _Protocol(asyncio.DatagramProtocol):
         self, recv_q: asyncio.Queue[bytes], buffer_free: asyncio.Event
     ) -> None:
         buffer_free.set()
-        self.recv_q = recv_q
-        self.buffer_free = buffer_free
-        self.transport: DatagramTransport | None = None
+        self._recv_q = recv_q
+        self._buffer_free = buffer_free
+        self._transport: DatagramTransport | None = None
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         logger.debug(transport)
-        self.transport = cast(DatagramTransport, transport)
+        self._transport = cast(DatagramTransport, transport)
 
     def connection_lost(self, exc: Exception | None) -> None:
         if exc is None:
             logger.info("Connection closed")
         else:
             logger.exception(exc)
-        if size := self.recv_q.qsize():
+        if size := self._recv_q.qsize():
             logger.warning("Receive queue has pending items: %s", size)
-        if self.transport:
-            self.transport.close()
+        if self._transport:
+            self._transport.close()
 
     def datagram_received(self, data: bytes, _: tuple[str | Any, int]) -> None:
-        self.recv_q.put_nowait(data)
+        self._recv_q.put_nowait(data)
 
     def error_received(self, exc: Exception) -> None:
         logger.exception(exc)
 
     def pause_writing(self) -> None:
-        self.buffer_free.clear()
+        self._buffer_free.clear()
 
     def resume_writing(self) -> None:
-        self.buffer_free.set()
+        self._buffer_free.set()
 
 
 class RconClient:
@@ -81,17 +81,17 @@ class RconClient:
         recv_timeout: float,
         buffer_free: asyncio.Event,
     ) -> None:
-        self.password = password
-        self.transport = transport
-        self.recv_q = recv_q
-        self.recv_timeout = recv_timeout
-        self.buffer_free = buffer_free
+        self._password = password
+        self._transport = transport
+        self._recv_q = recv_q
+        self._recv_timeout = recv_timeout
+        self._buffer_free = buffer_free
 
     async def broadcast(self, message: str) -> None:
         await self._send(f'"{message}"')
 
     def close(self) -> None:
-        self.transport.close()
+        self._transport.close()
 
     async def cvar(self, name: str) -> Cvar | None:
         data = await self._send(name.encode(encoding=ENCODING))
@@ -140,11 +140,13 @@ class RconClient:
     async def _send(self, cmd: str | bytes, *, retry: bool = False) -> str:
         if isinstance(cmd, str):
             cmd = cmd.encode(encoding=ENCODING)
-        cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self.password, cmd)
-        self.transport.sendto(cmd)
-        await self.buffer_free.wait()
+        cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self._password, cmd)
+        self._transport.sendto(cmd)
+        await self._buffer_free.wait()
         try:
-            data = await asyncio.wait_for(self.recv_q.get(), timeout=self.recv_timeout)
+            data = await asyncio.wait_for(
+                self._recv_q.get(), timeout=self._recv_timeout
+            )
             if data.startswith(REPLY_PREFIX):
                 return data.replace(REPLY_PREFIX, b"", 1).decode(encoding=ENCODING)
             logger.error("invalid reply for command: %r - %r", cmd, data)
@@ -158,8 +160,8 @@ class RconClient:
 
     def __repr__(self) -> str:
         return (
-            f"RconClient(host={self.transport.get_extra_info('peername')}, "
-            f"recv_timeout={self.recv_timeout})"
+            f"RconClient(host={self._transport.get_extra_info('peername')}, "
+            f"recv_timeout={self._recv_timeout})"
         )
 
 
