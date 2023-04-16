@@ -3,7 +3,7 @@ Urban Terror |30+| Game/Discord Bot
 """
 from .core import (
     Bot,
-    BotCommandHandler,
+    BotCommand,
     BotError,
     BotPlugin,
     __version__,
@@ -23,7 +23,7 @@ from .models import (
 __all__ = [
     "__version__",
     "Bot",
-    "BotCommandHandler",
+    "BotCommand",
     "BotError",
     "BotPlugin",
     "Game",

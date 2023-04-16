@@ -152,6 +152,12 @@ class RconClient:
 
         return ""
 
+    def __repr__(self) -> str:
+        return (
+            f"RconClient(host={self.transport.get_extra_info('peername')}, "
+            f"recv_timeout={self.recv_timeout})"
+        )
+
 
 async def create_client(
     host: str, port: int, password: str, recv_timeout: float = 0.2

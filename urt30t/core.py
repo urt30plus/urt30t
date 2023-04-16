@@ -1,19 +1,18 @@
 import asyncio
 import contextlib
+import datetime
 import importlib.util
 import inspect
 import logging
 import os
-import time
 from collections import defaultdict
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from pathlib import Path
 from types import FunctionType
-from typing import NamedTuple, TypeVar, cast
+from typing import Any, NamedTuple, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
-import aiojobs
 
 from . import events, rcon, settings
 from .models import (
@@ -30,10 +29,6 @@ _T = TypeVar("_T")
 
 EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[[Player, str | None], Awaitable[None]]
-
-_plugins: list["BotPlugin"] = []
-_event_handlers: dict[type[events.GameEvent], list[EventHandler]] = defaultdict(list)
-_command_handlers: dict[str, "BotCommandHandler"] = {}
 
 _event_class_by_action: dict[str, type[events.GameEvent]] = {
     name.lower(): cls
@@ -63,26 +58,42 @@ class BotPlugin:
 
 
 class BotCommand(NamedTuple):
+    handler: CommandHandler
     name: str
     level: Group = Group.USER
     alias: str | None = None
 
 
-class BotCommandHandler(NamedTuple):
-    command: BotCommand
-    handler: CommandHandler
-
-
 class Bot:
     def __init__(self) -> None:
-        self.start_time = time.time()
-        self.game = Game()
-        self.scheduler = aiojobs.Scheduler()
-        self.events_queue = asyncio.Queue[events.LogEvent](
+        self._started_at = datetime.datetime.now(tz=datetime.UTC)
+        self._events_queue = asyncio.Queue[events.LogEvent](
             settings.bot.event_queue_max_size
         )
         self._rcon: rcon.RconClient | None = None
-        self._cleanup_task: asyncio.Task[None] | None = None
+        self._plugins: list[BotPlugin] = []
+        self._event_handlers: dict[
+            type[events.GameEvent], list[EventHandler]
+        ] = defaultdict(list)
+        self._command_handlers: dict[str, BotCommand] = {}
+        self._tasks: set[asyncio.Task[Any]] = set()
+        self.game = Game()
+
+    async def run(self) -> None:
+        logger.info("%s running", self)
+        self._rcon = await rcon.create_client(
+            host=settings.rcon.host,
+            port=settings.rcon.port,
+            password=settings.rcon.password,
+            recv_timeout=settings.rcon.recv_timeout,
+        )
+        logger.info(self._rcon)
+        self.background_task(self._run_cleanup())
+        self.background_task(_tail_log(settings.bot.games_log, self._events_queue))
+
+        await self.sync_game()
+        await self._load_plugins()
+        await self._dispatch_events()
 
     @property
     def rcon(self) -> rcon.RconClient:
@@ -90,19 +101,22 @@ class Bot:
             raise RuntimeError("rcon_client_not_set")
         return self._rcon
 
+    def background_task(self, coro: Coroutine[Any, None, Any]) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
     @property
-    def commands(self) -> dict[str, BotCommandHandler]:
-        return _command_handlers
+    def commands(self) -> dict[str, BotCommand]:
+        return self._command_handlers
 
-    def find_player(self, slot: str) -> Player | None:
-        return self.game.players.get(slot)
-
-    async def connect_player(self, player: Player) -> None:
-        self.game.players[player.slot] = player
-
-    async def disconnect_player(self, slot: str) -> None:
-        with contextlib.suppress(KeyError):
-            del self.game.players[slot]
+    async def sync_game(self) -> None:
+        old_game = self.game
+        self.game = new_game = await self.rcon.players()
+        await asyncio.gather(
+            *[self.sync_player(p.slot) for p in new_game.players.values()]
+        )
+        logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, new_game)
 
     async def sync_player(self, slot: str) -> Player:
         if not (player := self.find_player(slot)):
@@ -113,38 +127,21 @@ class Bot:
             player.group = Group.GUEST
         return player
 
-    async def load_plugins(self) -> None:
-        plugins_specs = [*_core_plugins, *settings.bot.plugins]
-        logger.info("attempting to load plugin classes: %s", plugins_specs)
-        plugin_classes: list[type[BotPlugin]] = []
-        for spec in plugins_specs:
-            mod_path, class_name = spec.rsplit(".", maxsplit=1)
-            mod = importlib.import_module(mod_path)
-            plugin_class = getattr(mod, class_name)
-            if not issubclass(plugin_class, BotPlugin):
-                logger.error("%s is not a BotPlugin subclass", plugin_class)
-            else:
-                plugin_classes.append(plugin_class)
+    def find_player(self, slot: str) -> Player | None:
+        return self.game.players.get(slot)
 
-        # TODO: topo sort based on deps
+    async def connect_player(self, player: Player) -> None:
+        self.game.players[player.slot] = player
 
-        for cls in plugin_classes:
-            obj = cls(bot=self)
-            register_plugin(obj)
-            _plugins.append(obj)
+    async def disconnect_player(self, slot: str) -> None:
+        with contextlib.suppress(KeyError):
+            del self.game.players[slot]
+        # TODO: db updates?
 
-        for p in _plugins:
-            await p.plugin_load()
-
-    async def unload_plugins(self) -> None:
-        await asyncio.wait(
-            [asyncio.create_task(p.plugin_unload()) for p in _plugins], timeout=5.0
-        )
-
-    async def event_dispatcher(self) -> None:
-        event_queue_get = self.events_queue.get
-        event_queue_done = self.events_queue.task_done
-        handlers_get = _event_handlers.get
+    async def _dispatch_events(self) -> None:
+        event_queue_get = self._events_queue.get
+        event_queue_done = self._events_queue.task_done
+        handlers_get = self._event_handlers.get
         while log_event := await event_queue_get():
             if log_event.type is None:
                 event_queue_done()
@@ -165,54 +162,61 @@ class Bot:
 
             event_queue_done()
 
-    async def sync_game(self) -> None:
-        old_game = self.game
-        new_game = await self.rcon.players()
-        self.game = new_game
-        await asyncio.gather(
-            *[self.sync_player(p.slot) for p in new_game.players.values()]
-        )
-        logger.debug("Game state: %r --> %r", old_game, new_game)
+    async def _load_plugins(self) -> None:
+        plugins_specs = [*_core_plugins, *settings.bot.plugins]
+        logger.info("attempting to load plugin classes: %s", plugins_specs)
+        plugin_classes: list[type[BotPlugin]] = []
+        for spec in plugins_specs:
+            mod_path, class_name = spec.rsplit(".", maxsplit=1)
+            mod = importlib.import_module(mod_path)
+            plugin_class = getattr(mod, class_name)
+            if not issubclass(plugin_class, BotPlugin):
+                logger.error("%s is not a BotPlugin subclass", plugin_class)
+            else:
+                plugin_classes.append(plugin_class)
 
-    async def cleanup_task(self) -> None:
+        # TODO: sort plugins based on dependencies
+
+        for cls in plugin_classes:
+            obj = cls(bot=self)
+            self._register_plugin(obj)
+            self._plugins.append(obj)
+
+        for p in self._plugins:
+            await p.plugin_load()
+
+    def _register_plugin(self, plugin: BotPlugin) -> None:
+        for _, meth in inspect.getmembers(
+            plugin, predicate=inspect.iscoroutinefunction
+        ):
+            if subscription := getattr(meth.__func__, "bot_subscription", None):
+                self._event_handlers[subscription].append(meth)
+                logger.info("added subscription %s - %s", subscription, meth)
+
+            if cmd := getattr(meth.__func__, "bot_command", None):
+                resolved_cmd = cmd._replace(handler=meth)
+                self._command_handlers[cmd.name] = resolved_cmd
+                logger.info("added %r", resolved_cmd)
+
+    async def _unload_plugins(self) -> None:
+        await asyncio.wait(
+            [asyncio.create_task(p.plugin_unload()) for p in self._plugins], timeout=5.0
+        )
+
+    async def _run_cleanup(self) -> None:
         fut: asyncio.Future[None] = asyncio.Future()
         try:
             await fut
         except asyncio.CancelledError:
-            logger.info("shutdown_event triggered")
+            logger.info("triggered")
             raise
         finally:
-            await self.unload_plugins()
+            await self._unload_plugins()
             self.rcon.close()
-            await self.scheduler.close()
+            logger.info("%s stopped", self)
 
-    async def run(self) -> None:
-        logger.info("Bot v%s running", __version__)
-        self._rcon = await rcon.create_client(
-            host=settings.rcon.host,
-            port=settings.rcon.port,
-            password=settings.rcon.password,
-            recv_timeout=settings.rcon.recv_timeout,
-        )
-        await self.scheduler.spawn(
-            tail_log_events(settings.bot.games_log, self.events_queue)
-        )
-        self._cleanup_task = asyncio.create_task(self.cleanup_task())
-        await self.sync_game()
-        await self.load_plugins()
-        await self.event_dispatcher()
-
-
-def register_plugin(plugin: BotPlugin) -> None:
-    for _, meth in inspect.getmembers(plugin, predicate=inspect.iscoroutinefunction):
-        if subscription := getattr(meth.__func__, "bot_subscription", None):
-            _event_handlers[subscription].append(meth)
-            logger.info("add subscription: %s - %s", subscription, meth)
-
-        if cmd := getattr(meth.__func__, "bot_command", None):
-            cmd_handler = BotCommandHandler(command=cmd, handler=meth)
-            _command_handlers[cmd.name] = cmd_handler
-            logger.info("added %r", cmd_handler)
+    def __repr__(self) -> str:
+        return f"Bot(v{__version__}, started={self._started_at})"
 
 
 def bot_command(
@@ -221,6 +225,7 @@ def bot_command(
     def inner(f: _T) -> _T:
         name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
         f.bot_command = BotCommand(  # type: ignore[attr-defined]
+            handler=None,  # type: ignore
             name=name.lower(),
             level=level,
             alias=alias,
@@ -243,7 +248,7 @@ def bot_subscribe(f: _T) -> _T:
     raise TypeError
 
 
-async def tail_log_events(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
+async def _tail_log(log_file: Path, q: asyncio.Queue[events.LogEvent]) -> None:
     logger.info("Parsing game log file %s", log_file)
     read_delay = settings.bot.log_read_delay
     check_truncated = settings.bot.log_check_truncated

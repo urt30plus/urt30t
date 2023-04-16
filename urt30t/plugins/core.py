@@ -3,7 +3,7 @@ import logging
 
 from urt30t import (
     Bot,
-    BotCommandHandler,
+    BotCommand,
     BotPlugin,
     GameState,
     GameType,
@@ -132,12 +132,16 @@ class CommandsPlugin(BotPlugin):
 
     async def plugin_load(self) -> None:
         for cmd in self.bot.commands.values():
-            self.commands_by_group[cmd.command.name] = cmd.command.level
-            if cmd.command.alias:
-                self.commands_by_group[cmd.command.alias] = cmd.command.level
+            self.commands_by_group[cmd.name] = cmd.level
+            if cmd.alias:
+                self.commands_by_group[cmd.alias] = cmd.level
 
     @bot_command(Group.ADMIN, alias="bal")
     async def balance(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def ban(self, player: Player, data: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
@@ -181,6 +185,14 @@ class CommandsPlugin(BotPlugin):
 
         await self.bot.rcon.private_message(player.slot, message)
 
+    @bot_command(Group.MODERATOR)
+    async def kick(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.MODERATOR)
+    async def lastbans(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
     @bot_command(Group.GUEST, alias="lt")
     async def leveltest(self, player: Player, data: str | None = None) -> None:
         # TODO: handle cases where data is another user to test
@@ -206,6 +218,10 @@ class CommandsPlugin(BotPlugin):
 
     @bot_command(level=Group.ADMIN)
     async def pause(self, player: Player, _: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def putgroup(self, player: Player, data: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
@@ -241,6 +257,10 @@ class CommandsPlugin(BotPlugin):
 
     @bot_command(Group.USER)
     async def teams(self, player: Player, data: str | None = None) -> None:
+        raise NotImplementedError
+
+    @bot_command(Group.ADMIN)
+    async def tempban(self, player: Player, data: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
@@ -280,12 +300,12 @@ class CommandsPlugin(BotPlugin):
         if event.slot == event.target:
             await self.on_say(event)
 
-    def _find_command(self, cmd: str) -> BotCommandHandler | None:
+    def _find_command(self, cmd: str) -> BotCommand | None:
         if handler := self.bot.commands.get(cmd):
             return handler
-        for ch in self.bot.commands.values():
-            if ch.command.alias == cmd:
-                return ch
+        for c in self.bot.commands.values():
+            if c.alias == cmd:
+                return c
         return None
 
     def _find_command_sounds_like(self, group: Group, cmd: str) -> set[str]:
