@@ -23,11 +23,17 @@ RE_PLAYER = re.compile(
 
 class Group(enum.IntEnum):
     UNKNOWN = -1
-    GUEST = 0
-    USER = 1
-    FRIEND = 10
-    MODERATOR = 20
+    GUEST = 1
+    USER = 10
+    FRIEND = 20
+    MODERATOR = 30
     ADMIN = 100
+
+
+class MessageType(enum.Enum):
+    BIG = "&"
+    LOUD = "@"
+    PRIVATE = "!"
 
 
 class Team(enum.Enum):

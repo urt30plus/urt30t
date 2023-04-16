@@ -18,6 +18,7 @@ from . import events, rcon, settings
 from .models import (
     Game,
     Group,
+    MessageType,
     Player,
 )
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
 EventHandler = Callable[[events.GameEvent], Awaitable[None]]
-CommandHandler = Callable[[Player, str | None], Awaitable[None]]
+CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 _event_class_by_action: dict[str, type[events.GameEvent]] = {
     name.lower(): cls
@@ -57,11 +58,31 @@ class BotPlugin:
         pass
 
 
-class BotCommand(NamedTuple):
+class BotCommandConfig(NamedTuple):
     handler: CommandHandler
     name: str
     level: Group = Group.USER
     alias: str | None = None
+
+
+class BotCommand(NamedTuple):
+    plugin: BotPlugin
+    message_type: MessageType
+    player: Player
+    data: str | None = None
+
+    async def message(
+        self, message: str, message_type: MessageType | None = None
+    ) -> None:
+        # TODO: handle message prefixes and wrapping
+        if message_type is None:
+            message_type = self.message_type
+        if message_type is MessageType.PRIVATE:
+            await self.plugin.bot.rcon.private_message(self.player.slot, message)
+        elif message_type is MessageType.LOUD:
+            await self.plugin.bot.rcon.message(message)
+        else:
+            await self.plugin.bot.rcon.bigtext(message)
 
 
 class Bot:
@@ -76,7 +97,7 @@ class Bot:
         self._event_handlers: dict[
             type[events.GameEvent], list[EventHandler]
         ] = defaultdict(list)
-        self._command_handlers: dict[str, BotCommand] = {}
+        self._command_handlers: dict[str, BotCommandConfig] = {}
         self._tasks: set[asyncio.Task[Any]] = set()
         self.game = Game()
 
@@ -115,7 +136,7 @@ class Bot:
         task.add_done_callback(self._tasks.discard)
 
     @property
-    def commands(self) -> dict[str, BotCommand]:
+    def commands(self) -> dict[str, BotCommandConfig]:
         return self._command_handlers
 
     async def sync_game(self) -> None:
@@ -201,10 +222,10 @@ class Bot:
                 self._event_handlers[subscription].append(meth)
                 logger.info("added subscription %s - %s", subscription, meth)
 
-            if cmd := getattr(meth.__func__, "bot_command", None):
-                resolved_cmd = cmd._replace(handler=meth)
-                self._command_handlers[cmd.name] = resolved_cmd
-                logger.info("added %r", resolved_cmd)
+            if cmd_config := getattr(meth.__func__, "bot_command_config", None):
+                resolved = cmd_config._replace(handler=meth)
+                self._command_handlers[resolved.name] = resolved
+                logger.info("added %r", resolved)
 
     async def _unload_plugins(self) -> None:
         await asyncio.wait(
@@ -232,7 +253,7 @@ def bot_command(
 ) -> Callable[[_T], _T]:
     def inner(f: _T) -> _T:
         name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
-        f.bot_command = BotCommand(  # type: ignore[attr-defined]
+        f.bot_command_config = BotCommandConfig(  # type: ignore[attr-defined]
             handler=None,  # type: ignore
             name=name.lower(),
             level=level,

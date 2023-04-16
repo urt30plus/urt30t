@@ -87,6 +87,9 @@ class RconClient:
         self._recv_timeout = recv_timeout
         self._buffer_free = buffer_free
 
+    async def bigtext(self, message: str) -> None:
+        await self._send(f'bigtext "{message}"')
+
     async def broadcast(self, message: str) -> None:
         await self._send(f'"{message}"')
 
