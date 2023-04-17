@@ -121,6 +121,9 @@ class RconClient:
     async def map_restart(self) -> None:
         await self._send(b"map_restart")
 
+    async def maps(self) -> str:
+        return await self._send("fdir *.bsp")
+
     async def message(self, message: str) -> None:
         await self._send(f'say "{message}"')
 

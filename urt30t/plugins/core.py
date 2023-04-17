@@ -207,6 +207,17 @@ class CommandsPlugin(BotPlugin):
         assert cmd.player
         await self.bot.rcon.map_restart()
 
+    @bot_command(level=Group.MODERATOR)
+    async def maps(self, cmd: BotCommand) -> None:
+        result = await self.bot.rcon.maps()
+        m = [
+            x.removesuffix(".bsp").removeprefix("maps/")
+            for x in result.lstrip("\n-").splitlines()
+        ]
+        logger.debug(m)
+        logger.debug(self.bot.rcon._recv_q.qsize())
+        await cmd.message("test123")
+
     @bot_command(level=Group.ADMIN)
     async def moon(self, cmd: BotCommand) -> None:
         raise NotImplementedError
@@ -265,6 +276,15 @@ class CommandsPlugin(BotPlugin):
     @bot_command(Group.ADMIN)
     async def tempban(self, cmd: BotCommand) -> None:
         raise NotImplementedError
+
+    @bot_command(Group.GUEST)
+    async def test(self, cmd: BotCommand) -> None:
+        msg = (
+            "This is a really long line\n that should cause a wrap "
+            "if things are working right.\n If not then some fixing "
+            "will be required."
+        )
+        await cmd.message(msg)
 
     @bot_command(Group.ADMIN)
     async def timelimit(self, cmd: BotCommand) -> None:
