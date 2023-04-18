@@ -89,20 +89,24 @@ class RconClient:
         self._recv_q = recv_q
         self._recv_timeout = recv_timeout
         self._buffer_free = buffer_free
+        self._lock = asyncio.Lock()
 
     async def bigtext(self, message: str) -> None:
-        await self._send(f'bigtext "{message}"')
+        await self._execute(f'bigtext "{message}"')
 
     async def broadcast(self, message: str) -> None:
-        await self._send(f'"{message}"')
+        await self._execute(f'"{message}"')
 
     def close(self) -> None:
         self._transport.close()
 
     async def cvar(self, name: str) -> Cvar | None:
-        data = await self._send(name.encode(encoding=ENCODING))
+        if not (data := await self._execute(name)):
+            return None
+
+        cvar = data.decode(encoding=ENCODING)
         for pat in _CVAR_PATTERNS:
-            if m := pat.match(data):
+            if m := pat.match(cvar):
                 break
         else:
             return None
@@ -119,61 +123,79 @@ class RconClient:
         return Cvar(name=name, value=m["value"], default=default)
 
     async def cycle_map(self) -> None:
-        await self._send(b"cyclemap")
+        await self._execute(b"cyclemap")
 
     async def map_restart(self) -> None:
-        await self._send(b"map_restart")
+        await self._execute(b"map_restart")
 
-    async def maps(self) -> str:
-        return await self._send("fdir *.bsp", check_multi_recv=True)
+    async def maps(self) -> list[str]:
+        if not (
+            data := await self._execute(b"fdir *.bsp", retry=True, multi_recv=True)
+        ):
+            logger.error("command returned no data")
+            return []
+        lines = data.decode(encoding=ENCODING).splitlines()
+        if (
+            len(lines) < 2
+            or not lines[0].startswith("-----")
+            or not lines[-1].endswith("files listed")
+        ):
+            logger.error("invalid response: %r", lines)
+            return []
+        return [x.removeprefix("maps/").removesuffix(".bsp") for x in lines[1:-1]]
 
     async def message(self, message: str) -> None:
-        await self._send(f'say "{message}"')
+        await self._execute(f'say "{message}"')
 
     async def players(self) -> Game:
-        data = await self._send(b"players", retry=True, check_multi_recv=True)
-        return Game.from_string(data)
+        if data := await self._execute(b"players", retry=True, multi_recv=True):
+            return Game.from_string(data.decode(encoding=ENCODING))
+        logger.error("command returned no data")
+        return Game()
 
     async def private_message(self, slot: str, message: str) -> None:
-        await self._send(f'tell {slot} "{message}"')
+        await self._execute(f'tell {slot} "{message}"')
 
     async def reload(self) -> None:
-        await self._send(b"reload")
+        await self._execute(b"reload")
 
     async def shuffle_teams(self) -> None:
-        await self._send(b"shuffleteams")
+        await self._execute(b"shuffleteams")
 
     async def swap_teams(self) -> None:
-        await self._send(b"swapteams")
+        await self._execute(b"swapteams")
 
-    async def _send(
-        self, cmd: str | bytes, *, retry: bool = False, check_multi_recv: bool = False
-    ) -> str:
+    async def _execute(
+        self, cmd: str | bytes, *, retry: bool = False, multi_recv: bool = False
+    ) -> bytes | None:
         if isinstance(cmd, str):
             cmd = cmd.encode(encoding=ENCODING)
         cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self._password, cmd)
-        self._transport.sendto(cmd)
-        await self._buffer_free.wait()
-        data = b""
-        while True:
-            try:
-                payload = await asyncio.wait_for(
-                    self._recv_q.get(), timeout=self._recv_timeout
-                )
-                if payload.startswith(REPLY_PREFIX):
-                    data += payload.replace(REPLY_PREFIX, b"", 1)
-                else:
-                    logger.error("invalid reply for command: %r - %r", cmd, data)
-                    break
-                if not check_multi_recv:
-                    break
-            except asyncio.TimeoutError:
-                break
+        async with self._lock:
+            self._transport.sendto(cmd)
+            await self._buffer_free.wait()
+            data = await self._recv()
+            if multi_recv and data is not None:
+                while more_data := await self._recv():
+                    data += more_data
 
-        if retry and not data:
-            return await self._send(cmd, retry=False)
+        if retry and data is None:
+            return await self._execute(cmd, retry=False, multi_recv=multi_recv)
 
-        return data.decode(encoding=ENCODING)
+        return data
+
+    async def _recv(self) -> bytes | None:
+        try:
+            data = await asyncio.wait_for(
+                self._recv_q.get(), timeout=self._recv_timeout
+            )
+        except asyncio.TimeoutError:
+            return None
+        else:
+            if data.startswith(REPLY_PREFIX):
+                return data[len(REPLY_PREFIX) :]
+            logger.warning("reply does not contain expected prefix: %r", data)
+            return data
 
     def __repr__(self) -> str:
         return (

@@ -209,14 +209,15 @@ class CommandsPlugin(BotPlugin):
 
     @bot_command(level=Group.MODERATOR)
     async def maps(self, cmd: BotCommand) -> None:
-        result = await self.bot.rcon.maps()
-        m = [
-            x.removesuffix(".bsp").removeprefix("maps/")
-            for x in result.lstrip("\n-").splitlines()[1:-1]
-        ]
-        logger.debug(m)
-        logger.debug(self.bot.rcon._recv_q.qsize())
-        await cmd.message("test123")
+        # TODO: cache maps somewhere, maybe self.bot.server?
+        #   check for cache and if not populated call maps_reload()
+        map_list = await self.bot.rcon.maps()
+        await cmd.message(f"found {len(map_list)} maps")
+
+    @bot_command(level=Group.MODERATOR)
+    async def maps_reload(self, cmd: BotCommand) -> None:
+        # TODO: re-cache the maps list
+        raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
     async def moon(self, cmd: BotCommand) -> None:
