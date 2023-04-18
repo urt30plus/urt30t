@@ -212,7 +212,7 @@ class CommandsPlugin(BotPlugin):
         result = await self.bot.rcon.maps()
         m = [
             x.removesuffix(".bsp").removeprefix("maps/")
-            for x in result.lstrip("\n-").splitlines()
+            for x in result.lstrip("\n-").splitlines()[1:-1]
         ]
         logger.debug(m)
         logger.debug(self.bot.rcon._recv_q.qsize())

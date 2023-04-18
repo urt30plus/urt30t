@@ -60,15 +60,18 @@ class _Protocol(asyncio.DatagramProtocol):
             self._transport.close()
 
     def datagram_received(self, data: bytes, _: tuple[str | Any, int]) -> None:
+        logger.debug(data)
         self._recv_q.put_nowait(data)
 
     def error_received(self, exc: Exception) -> None:
         logger.exception(exc)
 
     def pause_writing(self) -> None:
+        logger.warning("pausing writes")
         self._buffer_free.clear()
 
     def resume_writing(self) -> None:
+        logger.warning("resuming writes")
         self._buffer_free.set()
 
 
@@ -122,7 +125,7 @@ class RconClient:
         await self._send(b"map_restart")
 
     async def maps(self) -> str:
-        return await self._send("fdir *.bsp")
+        return await self._send("fdir *.bsp", check_multi_recv=True)
 
     async def message(self, message: str) -> None:
         await self._send(f'say "{message}"')
@@ -143,26 +146,34 @@ class RconClient:
     async def swap_teams(self) -> None:
         await self._send(b"swapteams")
 
-    async def _send(self, cmd: str | bytes, *, retry: bool = False) -> str:
+    async def _send(
+        self, cmd: str | bytes, *, retry: bool = False, check_multi_recv: bool = False
+    ) -> str:
         if isinstance(cmd, str):
             cmd = cmd.encode(encoding=ENCODING)
         cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self._password, cmd)
         self._transport.sendto(cmd)
         await self._buffer_free.wait()
-        try:
-            data = await asyncio.wait_for(
-                self._recv_q.get(), timeout=self._recv_timeout
-            )
-            if data.startswith(REPLY_PREFIX):
-                return data.replace(REPLY_PREFIX, b"", 1).decode(encoding=ENCODING)
-            logger.error("invalid reply for command: %r - %r", cmd, data)
-        except asyncio.TimeoutError:
-            pass
+        data = b""
+        while True:
+            try:
+                payload = await asyncio.wait_for(
+                    self._recv_q.get(), timeout=self._recv_timeout
+                )
+                if payload.startswith(REPLY_PREFIX):
+                    data += payload.replace(REPLY_PREFIX, b"", 1)
+                else:
+                    logger.error("invalid reply for command: %r - %r", cmd, data)
+                    break
+                if not check_multi_recv:
+                    break
+            except asyncio.TimeoutError:
+                break
 
-        if retry:
+        if retry and not data:
             return await self._send(cmd, retry=False)
 
-        return ""
+        return data.decode(encoding=ENCODING)
 
     def __repr__(self) -> str:
         return (
