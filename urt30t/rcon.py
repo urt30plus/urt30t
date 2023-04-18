@@ -131,7 +131,7 @@ class RconClient:
         await self._send(f'say "{message}"')
 
     async def players(self) -> Game:
-        data = await self._send(b"players", retry=True)
+        data = await self._send(b"players", retry=True, check_multi_recv=True)
         return Game.from_string(data)
 
     async def private_message(self, slot: str, message: str) -> None:
