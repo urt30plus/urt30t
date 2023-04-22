@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import dataclasses
 import datetime
 import importlib.util
 import inspect
@@ -59,11 +60,12 @@ class BotCommandConfig(NamedTuple):
     alias: str | None = None
 
 
-class BotCommand(NamedTuple):
+@dataclasses.dataclass
+class BotCommand:
     plugin: BotPlugin
     message_type: MessageType
     player: Player
-    data: str | None = None
+    args: list[str] = dataclasses.field(default_factory=list)
 
     async def message(
         self, message: str, message_type: MessageType | None = None

@@ -160,9 +160,7 @@ class CommandsPlugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def cyclemap(self, cmd: BotCommand) -> None:
-        assert cmd.player
-        assert not cmd.data
+    async def cyclemap(self, _: BotCommand) -> None:
         await self.bot.rcon.cycle_map()
 
     @bot_command(Group.MODERATOR)
@@ -178,11 +176,11 @@ class CommandsPlugin(BotPlugin):
         """Provides a list of commands available."""
         # TODO: get list of commands available to the player that issued command
         #   or make sure the user has access to the target command
-        if cmd.data:
-            if cmd_handler := self._find_command_handler(cmd.data, cmd.player.group):
+        if cmd.args:
+            if cmd_handler := self._find_command_handler(cmd.args[0], cmd.player.group):
                 message = f'"{cmd_handler.__doc__}"'
             else:
-                message = f"command [{cmd.data}] not found"
+                message = f"command [{cmd.args[0]}] not found"
         else:
             message = f"there are {len(self.bot.commands)} commands total"
 
@@ -199,7 +197,7 @@ class CommandsPlugin(BotPlugin):
     @bot_command(Group.GUEST, alias="lt")
     async def leveltest(self, cmd: BotCommand) -> None:
         # TODO: handle cases where data is another user to test
-        logger.debug(cmd.data)
+        logger.debug(cmd.args)
         await cmd.message(f"{cmd.player.group.name}")
 
     @bot_command(level=Group.ADMIN)
@@ -306,7 +304,10 @@ class CommandsPlugin(BotPlugin):
         message_type = MessageType(event.text[:1])
         name, _, data = event.text[1:].partition(" ")
         cmd = BotCommand(
-            plugin=self, message_type=message_type, player=player, data=data
+            plugin=self,
+            message_type=message_type,
+            player=player,
+            args=[x.strip() for x in data.split()],
         )
         if cmd_handler := self._find_command_handler(name, player.group):
             await cmd_handler(cmd)
