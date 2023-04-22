@@ -282,7 +282,7 @@ class Bot(Protocol):
     async def disconnect_player(self, slot: str) -> None:
         ...
 
-    def find_player(self, slot: str) -> Player | None:
+    def player(self, slot: str) -> Player | None:
         ...
 
     async def sync_player(self, slot: str) -> Player:

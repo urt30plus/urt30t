@@ -47,7 +47,7 @@ class GameStatePlugin(BotPlugin):
     @bot_subscribe
     async def on_client_connect(self, event: events.ClientConnect) -> None:
         logger.debug(event)
-        if player := self.bot.find_player(event.slot):
+        if player := self.bot.player(event.slot):
             logger.warning("existing player found in slot: %r", player)
 
     @bot_subscribe
@@ -57,7 +57,7 @@ class GameStatePlugin(BotPlugin):
         auth = event.user_data.get("authl")
         name = event.user_data["name"]
         ip_addr, _, _ = event.user_data["ip"].partition(":")
-        if (player := self.bot.find_player(event.slot)) and player.guid == guid:
+        if (player := self.bot.player(event.slot)) and player.guid == guid:
             if player.auth != auth:
                 logger.warning("auth mismatch: %s -> %s", player.auth, auth)
                 player.auth = auth
@@ -88,7 +88,7 @@ class GameStatePlugin(BotPlugin):
     ) -> None:
         logger.debug(event)
         # TODO: do we care about funstuff, armban colors and model selection?
-        if player := self.bot.find_player(event.slot):
+        if player := self.bot.player(event.slot):
             name = event.user_data["n"].removesuffix("^7")
             if name != player.name:
                 logger.warning("name change: %s -> %s", player.name, name)
@@ -106,7 +106,7 @@ class GameStatePlugin(BotPlugin):
     @bot_subscribe
     async def on_account_validated(self, event: events.AccountValidated) -> None:
         logger.debug(event)
-        if player := self.bot.find_player(event.slot):
+        if player := self.bot.player(event.slot):
             player.validated = True
             if player.auth != event.auth:
                 logger.warning("%s != %s", player.auth, event.auth)
@@ -119,7 +119,7 @@ class GameStatePlugin(BotPlugin):
     @bot_subscribe
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
         logger.debug(event)
-        if player := self.bot.find_player(event.slot):
+        if player := self.bot.player(event.slot):
             player.state = PlayerState.ALIVE
 
     @bot_subscribe
@@ -299,7 +299,7 @@ class CommandsPlugin(BotPlugin):
         if not event.text.startswith(self.command_prefixes):
             return
         logger.info(event)
-        if not (player := self.bot.find_player(event.slot)):
+        if not (player := self.bot.player(event.slot)):
             logger.warning("no player found at: %s", event.slot)
             return
         message_type = MessageType(event.text[:1])

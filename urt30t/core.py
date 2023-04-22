@@ -101,7 +101,7 @@ class Bot:
         logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, self.game)
 
     async def sync_player(self, slot: str) -> Player:
-        if not (player := self.find_player(slot)):
+        if not (player := self.player(slot)):
             raise RuntimeError(slot)
         # TODO: load/save info from/to db
         # TODO: check for bans
@@ -109,7 +109,7 @@ class Bot:
             player.group = Group.GUEST
         return player
 
-    def find_player(self, slot: str) -> Player | None:
+    def player(self, slot: str) -> Player | None:
         return self.game.players.get(slot)
 
     async def connect_player(self, player: Player) -> None:
