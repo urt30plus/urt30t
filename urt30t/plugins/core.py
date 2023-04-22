@@ -89,7 +89,8 @@ class GameStatePlugin(BotPlugin):
         logger.debug(event)
         # TODO: do we care about funstuff, armban colors and model selection?
         if player := self.bot.find_player(event.slot):
-            if (name := event.user_data["n"]) != player.name:
+            name = event.user_data["n"].removesuffix("^7")
+            if name != player.name:
                 logger.warning("name change: %s -> %s", player.name, name)
                 # TODO: fire name change event
                 pass

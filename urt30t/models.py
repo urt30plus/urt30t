@@ -131,6 +131,10 @@ class Player:
     group: Group = Group.UNKNOWN
 
     @property
+    def clean_name(self) -> str:
+        return RE_COLOR.sub("", self.name)
+
+    @property
     def kills(self) -> int:
         return self.score.kills
 
