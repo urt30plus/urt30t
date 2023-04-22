@@ -13,7 +13,7 @@ async def async_main() -> None:
 
 if __name__ == "__main__":
     try:
-        import uvloop  # type: ignore[import]
+        import uvloop
 
         with contextlib.suppress(KeyboardInterrupt), asyncio.Runner(
             loop_factory=uvloop.new_event_loop
