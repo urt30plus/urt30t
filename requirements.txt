@@ -2,5 +2,5 @@ aiofiles==23.1.0
 alembic==1.10.3
 pydantic==1.10.7
 python-dotenv==1.0.0
-sqlalchemy==2.0.9
+sqlalchemy==2.0.10
 tzdata
