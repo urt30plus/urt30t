@@ -6,9 +6,9 @@ from typing import Any, NamedTuple, TypedDict, cast
 
 logger = logging.getLogger(__name__)
 
-CMD_PREFIX = b"\xff" * 4
-REPLY_PREFIX = CMD_PREFIX + b"print\n"
-ENCODING = "latin-1"
+_CMD_PREFIX = b"\xff" * 4
+_REPLY_PREFIX = _CMD_PREFIX + b"print\n"
+_ENCODING = "latin-1"
 
 _CVAR_PATTERNS = (
     # "sv_maxclients" is:"16^7" default:"8^7"
@@ -37,7 +37,7 @@ RE_COLOR = re.compile(r"(\^\d)")
 
 RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
 
-RE_PLAYER = re.compile(
+_RE_PLAYER = re.compile(
     r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
     r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
     r"KILLS:(?P<kills>-?[0-9]+)\s+"
@@ -48,6 +48,8 @@ RE_PLAYER = re.compile(
     r"IP:(?P<ip_address>.*)$",
     re.IGNORECASE,
 )
+
+_TEAM_NAMES = ("red", "r", "blue", "b", "spectator", "spec", "s")
 
 
 class _Protocol(asyncio.DatagramProtocol):
@@ -147,7 +149,7 @@ class RconClient:
         if not (data := await self._execute(name)):
             return None
 
-        cvar = data.decode(encoding=ENCODING)
+        cvar = data.decode(encoding=_ENCODING)
         for pat in _CVAR_PATTERNS:
             if m := pat.match(cvar):
                 break
@@ -168,6 +170,11 @@ class RconClient:
     async def cycle_map(self) -> None:
         await self._execute(b"cyclemap")
 
+    async def force(self, slot: str, team: str) -> None:
+        if (target := team.lower()) not in _TEAM_NAMES:
+            raise ValueError(team)
+        await self._execute(f"forceteam {slot} {target}")
+
     async def map_restart(self) -> None:
         await self._execute(b"map_restart")
 
@@ -177,7 +184,7 @@ class RconClient:
         ):
             logger.error("command returned no data")
             return []
-        lines = data.decode(encoding=ENCODING).splitlines()
+        lines = data.decode(encoding=_ENCODING).splitlines()
         if (
             len(lines) < 2
             or not lines[0].startswith("-----")
@@ -206,7 +213,7 @@ class RconClient:
         if not (data := await self._execute(b"players", retry=True, multi_recv=True)):
             logger.error("players command returned no data")
             raise LookupError
-        return _parse_players_command(data.decode(encoding=ENCODING))
+        return _parse_players_command(data.decode(encoding=_ENCODING))
 
     async def private_message(self, slot: str, message: str) -> None:
         await self._execute(f'tell {slot} "{message}"')
@@ -224,8 +231,8 @@ class RconClient:
         self, cmd: str | bytes, *, retry: bool = False, multi_recv: bool = False
     ) -> bytes | None:
         if isinstance(cmd, str):
-            cmd = cmd.encode(encoding=ENCODING)
-        cmd = b'%srcon "%s" %s\n' % (CMD_PREFIX, self._password, cmd)
+            cmd = cmd.encode(encoding=_ENCODING)
+        cmd = b'%srcon "%s" %s\n' % (_CMD_PREFIX, self._password, cmd)
         async with self._lock:
             self._transport.sendto(cmd)
             await self._buffer_free.wait()
@@ -247,8 +254,8 @@ class RconClient:
         except asyncio.TimeoutError:
             return None
         else:
-            if data.startswith(REPLY_PREFIX):
-                return data[len(REPLY_PREFIX) :]
+            if data.startswith(_REPLY_PREFIX):
+                return data[len(_REPLY_PREFIX) :]
             logger.warning("reply does not contain expected prefix: %r", data)
             return data
 
@@ -263,7 +270,7 @@ def _parse_players_player(data: str) -> Player:
     """
     0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
     """
-    if m := RE_PLAYER.match(data.strip()):
+    if m := _RE_PLAYER.match(data.strip()):
         ip_addr, _, port = m["ip_address"].partition(":")
         return {
             "slot": m["slot"],
@@ -340,5 +347,9 @@ async def create_client(
     )
 
     return RconClient(
-        password.encode(encoding=ENCODING), transport, recv_q, recv_timeout, buffer_free
+        password.encode(encoding=_ENCODING),
+        transport,
+        recv_q,
+        recv_timeout,
+        buffer_free,
     )

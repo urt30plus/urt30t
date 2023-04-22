@@ -133,6 +133,15 @@ class CommandsPlugin(BotPlugin):
         super().__init__(bot)
         self.command_prefixes = tuple(x.value for x in MessageType)
         self.commands_by_group: dict[str, Group] = {}
+        self.team_map = {
+            "red": Team.RED,
+            "r": Team.RED,
+            "blue": Team.BLUE,
+            "b": Team.BLUE,
+            "spectator": Team.SPECTATOR,
+            "spec": Team.SPECTATOR,
+            "s": Team.SPECTATOR,
+        }
 
     async def plugin_load(self) -> None:
         for cmd in self.bot.commands.values():
@@ -166,7 +175,34 @@ class CommandsPlugin(BotPlugin):
 
     @bot_command(Group.MODERATOR)
     async def force(self, cmd: BotCommand) -> None:
-        raise NotImplementedError
+        """
+        <player> <[r]ed/[b]lue/[s]pec> - Move a player to the specified team.
+        """
+        if len(cmd.args) != 2:
+            await cmd.message(f"Invalid arguments: {cmd.args}")
+            return
+
+        if players := self.bot.find_player(cmd.args[0]):
+            if len(players) == 1:
+                player = players[0]
+            else:
+                choose = ", ".join(p.name for p in players)
+                await cmd.message(f"Which client: {choose}")
+                return
+        else:
+            await cmd.message(f"No players found: {cmd.args[0]}")
+            return
+
+        if not (target := self.team_map.get(cmd.args[1])):
+            choices = ", ".join(self.team_map)
+            await cmd.message(f"Invalid team name [target]: use {choices}")
+            return
+
+        if player.team is target:
+            await cmd.message(f"Player already on team {target.name}")
+            return
+
+        await self.bot.rcon.force(player.slot, target.name)
 
     @bot_command(Group.ADMIN)
     async def fraglimit(self, cmd: BotCommand) -> None:
