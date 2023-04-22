@@ -93,11 +93,12 @@ class Bot:
 
     async def sync_game(self) -> None:
         old_game = self.game
-        self.game = new_game = await self.rcon.players()
+        new_game = await self.rcon.players()
+        self.game = Game.from_dict(new_game)
         await asyncio.gather(
-            *[self.sync_player(p.slot) for p in new_game.players.values()]
+            *[self.sync_player(p.slot) for p in self.game.players.values()]
         )
-        logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, new_game)
+        logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, self.game)
 
     async def sync_player(self, slot: str) -> Player:
         if not (player := self.find_player(slot)):

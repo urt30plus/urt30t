@@ -1,25 +1,11 @@
+import abc
 import dataclasses
 import enum
 import functools
-import re
 from collections.abc import Awaitable, Callable
 from typing import Any, NamedTuple, Protocol, Self
 
-RE_COLOR = re.compile(r"(\^\d)")
-
-RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
-
-RE_PLAYER = re.compile(
-    r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
-    r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
-    r"KILLS:(?P<kills>-?[0-9]+)\s+"
-    r"DEATHS:(?P<deaths>[0-9]+)\s+"
-    r"ASSISTS:(?P<assists>[0-9]+)\s+"
-    r"PING:(?P<ping>[0-9]+|CNCT|ZMBI)\s+"
-    r"AUTH:(?P<auth>.*)\s+"
-    r"IP:(?P<ip_address>.*)$",
-    re.IGNORECASE,
-)
+from . import rcon
 
 CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
@@ -135,7 +121,7 @@ class Player:
 
     @property
     def clean_name(self) -> str:
-        return RE_COLOR.sub("", self.name)
+        return rcon.RE_COLOR.sub("", self.name)
 
     @property
     def kills(self) -> int:
@@ -161,23 +147,17 @@ class Player:
         )
 
     @classmethod
-    def from_string(cls, data: str) -> Self:
-        if m := RE_PLAYER.match(data.strip()):
-            name = RE_COLOR.sub("", m["name"])
-            team = Team[m["team"]]
-            score = PlayerScore._make(int(m[x]) for x in PlayerScore._fields)
-            ping = -1 if m["ping"] in ("CNCT", "ZMBI") else int(m["ping"])
-            ip_addr, _, port = m["ip_address"].partition(":")
-            return cls(
-                slot=m["slot"],
-                name=name,
-                team=team,
-                score=score,
-                ping=ping,
-                auth=m["auth"],
-                ip_address=ip_addr,
-            )
-        raise ValueError(data)
+    def from_dict(cls, p: rcon.Player) -> Self:
+        ping = -1 if p["ping"] in ("CNCT", "ZMBI") else int(p["ping"])
+        return cls(
+            slot=p["slot"],
+            name=p["name"],
+            team=Team[p["team"]],
+            score=PlayerScore(p["kills"], p["deaths"], p["assists"]),
+            ping=ping,
+            auth=p["auth"],
+            ip_address=p["ip_address"],
+        )
 
 
 class GameType(enum.Enum):
@@ -215,7 +195,7 @@ class Game:
     def score_red(self) -> str | None:
         if not self.scores:
             return None
-        if m := RE_SCORES.match(self.scores):
+        if m := rcon.RE_SCORES.match(self.scores):
             return m["red"]
         return None
 
@@ -223,7 +203,7 @@ class Game:
     def score_blue(self) -> str | None:
         if not self.scores:
             return None
-        if m := RE_SCORES.match(self.scores):
+        if m := rcon.RE_SCORES.match(self.scores):
             return m["blue"]
         return None
 
@@ -247,51 +227,28 @@ class Game:
         return [p for p in self.players.values() if p.team is team]
 
     @classmethod
-    def from_string(cls, data: str) -> Self:
-        in_header = True
-        settings = {}
-        players = []
-        for line in data.splitlines():
-            k, v = line.split(":", maxsplit=1)
-            if in_header:
-                settings[k] = v.strip()
-                if k == "GameTime":
-                    in_header = False
-            elif k.isnumeric():
-                players.append(Player.from_string(line))
-            elif k == "Map":
-                # back-to-back messages, start over
-                settings[k] = v.strip()
-                in_header = True
-
-        if (player_count := int(settings.get("Players", "0"))) != len(players):
+    def from_dict(cls, g: rcon.Game) -> Self:
+        players = [Player.from_dict(p) for p in g["Slots"]]
+        if (player_count := g.get("Players", 0)) != len(players):
             msg = (
                 f"Player count {player_count} does not match "
                 f"players {len(players)}"
-                f"\n\n{data}"
+                f"\n\n{g}"
             )
             raise RuntimeError(msg)
 
-        if not (map_name := settings.get("Map", "Unknown")):
-            raise RuntimeError("MAP_NOT_SET", data)
+        if not (map_name := g.get("Map")):
+            raise RuntimeError("MAP_NOT_SET", g)
 
         return cls(
-            type=GameType[settings.get("GameType", "UNKNOWN")],
-            time=settings.get("GameTime", "00:00:00"),
+            type=GameType[g["GameType"]],
+            time=g["GameTime"],
             map_name=map_name,
-            state=GameState.LIVE
-            if settings.get("WarmupPhase", "NO") != "NO"
-            else GameState.WARMUP,
-            match_mode=settings.get("MatchMode", "OFF") != "OFF",
-            scores=settings.get("Scores"),
+            state=GameState.WARMUP if g["WarmupPhase"] else GameState.LIVE,
+            match_mode=g["MatchMode"],
+            scores=g["Scores"],
             players={p.slot: p for p in players},
         )
-
-
-class Cvar(NamedTuple):
-    name: str
-    value: str
-    default: str | None = None
 
 
 class BotCommandConfig(NamedTuple):
@@ -305,14 +262,17 @@ class Bot(Protocol):
     game: Game
 
     @property
-    def rcon(self) -> Any:
+    @abc.abstractmethod
+    def rcon(self) -> rcon.RconClient:
         ...
 
     @property
+    @abc.abstractmethod
     def message_prefix(self) -> str:
         ...
 
     @property
+    @abc.abstractmethod
     def commands(self) -> dict[str, BotCommandConfig]:
         ...
 

@@ -2,9 +2,7 @@ import asyncio
 import logging
 import re
 from asyncio.transports import DatagramTransport
-from typing import Any, cast
-
-from .models import Cvar, Game
+from typing import Any, NamedTuple, TypedDict, cast
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +31,22 @@ _CVAR_PATTERNS = (
         r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*"(?P<value>.*?)(\^7)?"$',
         re.IGNORECASE | re.MULTILINE,
     ),
+)
+
+RE_COLOR = re.compile(r"(\^\d)")
+
+RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
+
+RE_PLAYER = re.compile(
+    r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
+    r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
+    r"KILLS:(?P<kills>-?[0-9]+)\s+"
+    r"DEATHS:(?P<deaths>[0-9]+)\s+"
+    r"ASSISTS:(?P<assists>[0-9]+)\s+"
+    r"PING:(?P<ping>[0-9]+|CNCT|ZMBI)\s+"
+    r"AUTH:(?P<auth>.*)\s+"
+    r"IP:(?P<ip_address>.*)$",
+    re.IGNORECASE,
 )
 
 
@@ -73,6 +87,35 @@ class _Protocol(asyncio.DatagramProtocol):
     def resume_writing(self) -> None:
         logger.warning("resuming writes")
         self._buffer_free.set()
+
+
+class Cvar(NamedTuple):
+    name: str
+    value: str
+    default: str | None = None
+
+
+class Player(TypedDict):
+    slot: str
+    name: str
+    team: str
+    kills: int
+    deaths: int
+    assists: int
+    ping: str
+    auth: str
+    ip_address: str
+
+
+class Game(TypedDict):
+    Map: str
+    Players: int
+    GameType: str
+    Scores: str
+    MatchMode: bool
+    WarmupPhase: bool
+    GameTime: str
+    Slots: list[Player]
 
 
 class RconClient:
@@ -148,10 +191,22 @@ class RconClient:
         await self._execute(f'say "{message}"')
 
     async def players(self) -> Game:
-        if data := await self._execute(b"players", retry=True, multi_recv=True):
-            return Game.from_string(data.decode(encoding=ENCODING))
-        logger.error("command returned no data")
-        return Game()
+        """
+        Map: ut4_abbey
+        Players: 3
+        GameType: CTF
+        Scores: R:5 B:10
+        MatchMode: OFF
+        WarmupPhase: NO
+        GameTime: 00:12:04
+        0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
+        1:bar^7 TEAM:BLUE KILLS:20 DEATHS:9 ASSISTS:0 PING:98 AUTH:bar IP:127.0.0.1
+        2:baz^7 TEAM:RED KILLS:32 DEATHS:18 ASSISTS:0 PING:98 AUTH:baz IP:127.0.0.1
+        """
+        if not (data := await self._execute(b"players", retry=True, multi_recv=True)):
+            logger.error("players command returned no data")
+            raise LookupError
+        return _parse_players_command(data.decode(encoding=ENCODING))
 
     async def private_message(self, slot: str, message: str) -> None:
         await self._execute(f'tell {slot} "{message}"')
@@ -202,6 +257,73 @@ class RconClient:
             f"RconClient(host={self._transport.get_extra_info('peername')}, "
             f"recv_timeout={self._recv_timeout})"
         )
+
+
+def _parse_players_player(data: str) -> Player:
+    """
+    0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
+    """
+    if m := RE_PLAYER.match(data.strip()):
+        ip_addr, _, port = m["ip_address"].partition(":")
+        return {
+            "slot": m["slot"],
+            "name": m["name"].removesuffix("^7"),
+            "team": m["team"],
+            "kills": int(m["kills"]),
+            "deaths": int(m["deaths"]),
+            "assists": int(m["assists"]),
+            "ping": m["ping"],
+            "auth": m["auth"],
+            "ip_address": ip_addr,
+        }
+
+    raise ValueError(data)
+
+
+def _parse_players_command(data: str) -> Game:
+    """
+    Map: ut4_abbey
+    Players: 3
+    GameType: CTF
+    Scores: R:5 B:10
+    MatchMode: OFF
+    WarmupPhase: NO
+    GameTime: 00:12:04
+    0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
+    """
+    in_header = True
+    game: Game = {}  # type: ignore[typeddict-item]
+    players = []
+    for line in data.splitlines():
+        k, v = line.split(":", maxsplit=1)
+        v = v.strip()
+        if in_header:
+            if k == "Map":
+                game["Map"] = v
+            elif k == "Players":
+                game["Players"] = int(v)
+            elif k == "GameType":
+                game["GameType"] = v
+            elif k == "Scores":
+                game["Scores"] = v
+            elif k == "MatchMode":
+                game["MatchMode"] = v != "OFF"
+            elif k == "WarmupPhase":
+                game["WarmupPhase"] = v != "NO"
+            elif k == "GameTime":
+                game["GameTime"] = v
+                in_header = False
+            else:
+                logger.warning("unknown header: %s - %s", k, v)
+        elif k.isnumeric():
+            players.append(_parse_players_player(line))
+        elif k == "Map":
+            # back-to-back messages, start over
+            game["Map"] = v
+            in_header = True
+
+    game["Slots"] = players
+    return game
 
 
 async def create_client(
