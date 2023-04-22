@@ -112,6 +112,25 @@ class Bot:
     def player(self, slot: str) -> Player | None:
         return self.game.players.get(slot)
 
+    def find_player(self, s: str, /) -> list[Player]:
+        if len(s) <= 3 and s.isdigit():
+            p = self.player(s)
+            return [p] if p else []
+        needle = s.lower()
+        return [
+            p
+            for p in self.game.players.values()
+            if needle in p.clean_name or needle == p.auth
+        ]
+
+    async def search_players(self, s: str, /) -> list[Player]:
+        if not (s.startswith("@") and s[1:].isdigit()):
+            return self.find_player(s)
+        db_id = s[1:]
+        logger.info("looking up player_db_id: %s", db_id)
+        # TODO: lookup player in the database
+        return []
+
     async def connect_player(self, player: Player) -> None:
         self.game.players[player.slot] = player
 
