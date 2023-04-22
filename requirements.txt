@@ -4,3 +4,4 @@ pydantic==1.10.7
 python-dotenv==1.0.0
 sqlalchemy==2.0.10
 tzdata
+uvloop==0.17.0; sys_platform == 'linux'
