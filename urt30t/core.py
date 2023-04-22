@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 
-EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 _core_plugins = [
@@ -95,7 +94,7 @@ class Bot:
         self._rcon: rcon.RconClient | None = None
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
-            type[events.GameEvent], list[EventHandler]
+            type[events.GameEvent], list[events.EventHandler]
         ] = defaultdict(list)
         self._command_handlers: dict[str, BotCommandConfig] = {}
         self.game = Game()

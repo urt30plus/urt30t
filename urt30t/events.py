@@ -1,7 +1,10 @@
 import dataclasses
+from collections.abc import Awaitable, Callable
 from typing import NamedTuple, Self
 
 from .models import BombAction, FlagAction, KillMode, Team
+
+EventHandler = Callable[["GameEvent"], Awaitable[None]]
 
 
 class LogEvent(NamedTuple):
