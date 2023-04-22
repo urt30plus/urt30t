@@ -1,6 +1,6 @@
 from urt30t import events
 from urt30t.events import LogEvent
-from urt30t.models import BombAction, FlagAction, KillMode, Team
+from urt30t.models import BombAction, FlagAction, HitLocation, HitMode, KillMode, Team
 
 
 def test_event_account_kick():
@@ -75,6 +75,12 @@ def test_event_client_disconnect():
     assert e.slot == "15"
 
 
+def test_event_client_melted():
+    log_event = LogEvent(events.ClientMelted, data="15")
+    e = events.ClientMelted.from_log_event(log_event)
+    assert e.slot == "15"
+
+
 def test_event_client_spawn():
     log_event = LogEvent(events.ClientSpawn, data="15")
     e = events.ClientSpawn.from_log_event(log_event)
@@ -94,6 +100,27 @@ def test_event_flag_capture_time():
     e = events.FlagCaptureTime.from_log_event(log_event)
     assert e.slot == "0"
     assert e.cap_time == 15.75
+
+
+def test_event_freeze():
+    log_event = LogEvent(
+        events.Freeze, data="4 17 38: |30+|money^7 froze <>(CK)<>^7 by UT_MOD_M4"
+    )
+    e = events.Freeze.from_log_event(log_event)
+    assert e.slot == "4"
+    assert e.target == "17"
+    assert e.freeze_mode == KillMode.M4
+
+
+def test_event_hit():
+    log_event = LogEvent(
+        events.Hit, data="4 8 4 19: |30+|Mudcat^7 hit |30+|money^7 in the Vest"
+    )
+    e = events.Hit.from_log_event(log_event)
+    assert e.slot == "4"
+    assert e.attacker == "8"
+    assert e.location is HitLocation.VEST
+    assert e.hit_mode is HitMode.M4
 
 
 def test_event_init_auth():
@@ -116,13 +143,6 @@ def test_event_kill():
     assert e.kill_mode is KillMode.TOD50
 
 
-def test_event_team_scores():
-    log_event = LogEvent(events.TeamScores, data="red:8  blue:5")
-    e = events.TeamScores.from_log_event(log_event)
-    assert e.red == 8
-    assert e.blue == 5
-
-
 def test_event_survivor_winner_player():
     log_event = LogEvent(events.SurvivorWinner, data="2")
     e = events.SurvivorWinner.from_log_event(log_event)
@@ -135,3 +155,30 @@ def test_event_survivor_winner_team():
     e = events.SurvivorWinner.from_log_event(log_event)
     assert e.slot is None
     assert e.team == Team.RED
+
+
+def test_event_team_scores():
+    log_event = LogEvent(events.TeamScores, data="red:8  blue:5")
+    e = events.TeamScores.from_log_event(log_event)
+    assert e.red == 8
+    assert e.blue == 5
+
+
+def test_event_thaw_out_finished():
+    log_event = LogEvent(
+        events.ThawOutFinished,
+        data="4 13: |30+|money^7 thawed out I30+IColombianRipper^7",
+    )
+    e = events.ThawOutFinished.from_log_event(log_event)
+    assert e.slot == "4"
+    assert e.target == "13"
+
+
+def test_event_thaw_out_started():
+    log_event = LogEvent(
+        events.ThawOutStarted,
+        data="4 9: |30+|money^7 started thawing out |30+|hedgehog^7",
+    )
+    e = events.ThawOutStarted.from_log_event(log_event)
+    assert e.slot == "4"
+    assert e.target == "9"

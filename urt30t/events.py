@@ -2,7 +2,7 @@ import dataclasses
 from collections.abc import Awaitable, Callable
 from typing import NamedTuple, Self
 
-from .models import BombAction, FlagAction, KillMode, Team
+from .models import BombAction, FlagAction, HitLocation, HitMode, KillMode, Team
 
 EventHandler = Callable[["GameEvent"], Awaitable[None]]
 
@@ -160,8 +160,10 @@ class ClientDisconnect(SlotGameEvent):
 
 
 @dataclasses.dataclass
-class ClientMelted(GameEvent):
-    """TODO: implement me"""
+class ClientMelted(SlotGameEvent):
+    """1:52 ClientMelted: 11"""
+
+    slot: str
 
 
 @dataclasses.dataclass
@@ -256,12 +258,44 @@ class FlagReturn(GameEvent):
 
 @dataclasses.dataclass
 class Freeze(GameEvent):
-    pass
+    """1:36 Freeze: 4 17 38: |30+|money^7 froze <>(CK)<>^7 by UT_MOD_M4"""
+
+    slot: str
+    target: str
+    freeze_mode: KillMode
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        slots, _, _ = log_event.data.partition(":")
+        slot, attacker, weapon = slots.split(" ")
+        return cls(
+            game_time=log_event.game_time,
+            slot=slot,
+            target=attacker,
+            freeze_mode=KillMode(weapon),
+        )
 
 
 @dataclasses.dataclass
 class Hit(GameEvent):
-    """TODO: implement me"""
+    """2:02 Hit: 4 8 4 19: |30+|Mudcat^7 hit |30+|money^7 in the Vest"""
+
+    slot: str
+    attacker: str
+    location: HitLocation
+    hit_mode: HitMode
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        slots, _, _ = log_event.data.partition(":")
+        slot, attacker, location, hit_mode = slots.split()
+        return cls(
+            game_time=log_event.game_time,
+            slot=slot,
+            attacker=attacker,
+            location=HitLocation(location),
+            hit_mode=HitMode(hit_mode),
+        )
 
 
 @dataclasses.dataclass
@@ -423,6 +457,34 @@ class TeamScores(GameEvent):
             red=int(r),
             blue=int(b),
         )
+
+
+@dataclasses.dataclass
+class ThawOutFinished(GameEvent):
+    """1:42 ThawOutFinished: 4 13: |30+|money^7 thawed out I30+IColombianRipper^7"""
+
+    slot: str
+    target: str
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        slots, _, _ = log_event.data.partition(":")
+        slot, target = slots.split()
+        return cls(game_time=log_event.game_time, slot=slot, target=target)
+
+
+@dataclasses.dataclass
+class ThawOutStarted(GameEvent):
+    """1:52 ThawOutStarted: 4 9: |30+|money^7 started thawing out |30+|hedgehog^7"""
+
+    slot: str
+    target: str
+
+    @classmethod
+    def from_log_event(cls, log_event: LogEvent) -> Self:
+        slots, _, _ = log_event.data.partition(":")
+        slot, target = slots.split()
+        return cls(game_time=log_event.game_time, slot=slot, target=target)
 
 
 @dataclasses.dataclass

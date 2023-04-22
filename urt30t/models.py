@@ -48,6 +48,49 @@ class FlagAction(enum.Enum):
     CAPTURED = "2"
 
 
+class HitLocation(enum.Enum):
+    HEAD = "1"
+    HELMET = "2"
+    TORSO = "3"
+    VEST = "4"
+    LEFT_ARM = "5"
+    RIGHT_ARM = "6"
+    GROIN = "7"
+    BUTT = "8"
+    LEFT_UPPER_LEG = "9"
+    RIGHT_UPPER_LEG = "10"
+    LEFT_LOWER_LEG = "11"
+    RIGHT_LOWER_LEG = "12"
+    LEFT_FOOT = "13"
+    RIGHT_FOOT = "14"
+
+
+class HitMode(enum.Enum):
+    KNIFE = "1"
+    BERETTA = "2"
+    DEAGLE = "3"
+    SPAS = "4"
+    MP5K = "5"
+    UMP45 = "6"
+    LR300 = "8"
+    G36 = "9"
+    PSG1 = "10"
+    SR8 = "14"
+    AK103 = "15"
+    NEGEV = "17"
+    M4 = "19"
+    GLOCK = "20"
+    COLT1911 = "21"
+    MAC11 = "22"
+    FRF1 = "23"
+    BENELLI = "24"
+    P90 = "25"
+    MAGNUM = "26"
+    TOD50 = "27"
+    KICKED = "29"
+    KNIFE_THROWN = "30"
+
+
 class KillMode(enum.Enum):
     WATER = "1"
     LAVA = "3"
