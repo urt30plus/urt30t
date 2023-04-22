@@ -5,7 +5,7 @@ from .models import BombAction, FlagAction, KillMode, Team
 
 
 class LogEvent(NamedTuple):
-    type: str | None = None
+    type: str
     game_time: str = "00:00"
     data: str = ""
 
