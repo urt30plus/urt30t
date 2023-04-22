@@ -125,6 +125,11 @@ class BombHolder(GameEvent):
 
 
 @dataclasses.dataclass
+class BotStartup(GameEvent):
+    pass
+
+
+@dataclasses.dataclass
 class CallVote(GameEvent):
     """TODO: implement me"""
 

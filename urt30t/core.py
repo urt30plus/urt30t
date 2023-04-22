@@ -123,7 +123,7 @@ class Bot:
                 check_truncated=self.conf.log_check_truncated,
             )
         )
-
+        self._event_handlers[events.BotStartup].append(self.on_startup)  # type: ignore
         await self.sync_game()
         await self._load_plugins()
         await self._dispatch_events()
@@ -171,14 +171,19 @@ class Bot:
             del self.game.players[slot]
         # TODO: db updates?
 
+    async def on_startup(self, event: events.BotStartup) -> None:
+        pass
+
+    async def on_shutdown(self) -> None:
+        await self._unload_plugins()
+        self.rcon.close()
+        logger.info("%s stopped", self)
+
     async def _dispatch_events(self) -> None:
         event_queue_get = self._events_queue.get
         event_queue_done = self._events_queue.task_done
         handlers_get = self._event_handlers.get
         while log_event := await event_queue_get():
-            if log_event.type is None:
-                event_queue_done()
-                continue
             if not (event_class := _event_class_by_action.get(log_event.type)):
                 logger.warning("no event class found: %r", log_event)
                 event_queue_done()
@@ -244,9 +249,7 @@ class Bot:
             logger.info("triggered")
             raise
         finally:
-            await self._unload_plugins()
-            self.rcon.close()
-            logger.info("%s stopped", self)
+            await self.on_shutdown()
 
     def __repr__(self) -> str:
         return f"Bot(v{__version__}, started={self._started_at})"
@@ -298,7 +301,7 @@ async def _tail_log(
             cur_pos,
         )
         # signal that we are ready and wait for the event dispatcher to start
-        await event_queue.put(events.LogEvent())
+        await event_queue.put(events.LogEvent(type="botstartup"))
         await event_queue.join()
         while await asyncio.sleep(read_delay, result=True):
             if not (lines := await fp.readlines()):
@@ -321,10 +324,11 @@ async def _tail_log(
                     lines = await fp.readlines()
 
             for line in lines:
-                await event_queue.put(parse_log_line(line))
+                if log_event := parse_log_line(line):
+                    await event_queue.put(log_event)
 
 
-def parse_log_line(line: str) -> events.LogEvent:
+def parse_log_line(line: str) -> events.LogEvent | None:
     """Creates a LogEvent from a raw log entry.
 
     A typical log entry usually starts with the time (MMM:SS) left padded
@@ -355,16 +359,14 @@ def parse_log_line(line: str) -> events.LogEvent:
     elif event_name == "Pop!":
         event_type = "pop"
         data = ""
-    elif event_name.startswith("Session data"):
+    elif event_name.startswith(("Session data", "-----")):
         event_type = None
-        data = event_name
-    elif event_name.startswith("-----"):
-        event_type = None
-        data = ""
     else:
         logger.warning("event type not in log line: [%s]", line)
         event_type = None
-        data = event_name
+
+    if event_type is None:
+        return None
 
     event = events.LogEvent(type=event_type, game_time=game_time, data=data)
     logger.debug(event)

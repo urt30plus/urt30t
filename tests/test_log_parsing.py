@@ -47,14 +47,12 @@ def test_log_session_data_init():
     e = parse_log_line(
         "  3:01 Session data initialised for client on slot 0 at 203293239"
     )
-    assert e.type is None
-    assert e.data == "Session data initialised for client on slot 0 at 203293239"
+    assert e is None
 
 
 def test_log_separator():
     e = parse_log_line("  3:01 ------------------------------------------------------")
-    assert e.type is None
-    assert e.data == ""
+    assert e is None
 
 
 def test_log_say_team():
@@ -83,8 +81,7 @@ def test_log_survivor_winner():
 
 def test_log_no_type():
     e = parse_log_line(" 12:33 no type found")
-    assert e.type is None
-    assert e.data == "no type found"
+    assert e is None
 
 
 def test_log_long_game_time():
