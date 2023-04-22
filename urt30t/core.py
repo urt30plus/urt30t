@@ -6,15 +6,15 @@ import inspect
 import logging
 import os
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from types import FunctionType
-from typing import Any, NamedTuple, TypeVar, cast
+from typing import NamedTuple, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
 
-from . import events, rcon, settings
+from . import events, rcon, settings, tasks
 from .models import (
     Game,
     Group,
@@ -102,7 +102,6 @@ class Bot:
             type[events.GameEvent], list[EventHandler]
         ] = defaultdict(list)
         self._command_handlers: dict[str, BotCommandConfig] = {}
-        self._tasks: set[asyncio.Task[Any]] = set()
         self.game = Game()
 
     async def run(self) -> None:
@@ -114,8 +113,8 @@ class Bot:
             recv_timeout=settings.rcon.recv_timeout,
         )
         logger.info(self._rcon)
-        self.background_task(self._run_cleanup())
-        self.background_task(
+        tasks.background(self._run_cleanup())
+        tasks.background(
             _tail_log(
                 log_file=self.conf.games_log,
                 event_queue=self._events_queue,
@@ -133,11 +132,6 @@ class Bot:
         if self._rcon is None:
             raise RuntimeError("rcon_client_not_set")
         return self._rcon
-
-    def background_task(self, coro: Coroutine[Any, None, Any]) -> None:
-        task = asyncio.create_task(coro)
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
 
     @property
     def commands(self) -> dict[str, BotCommandConfig]:
