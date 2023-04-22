@@ -2,7 +2,8 @@ import dataclasses
 import enum
 import functools
 import re
-from typing import Any, NamedTuple, Self
+from collections.abc import Awaitable, Callable
+from typing import Any, NamedTuple, Protocol, Self
 
 RE_COLOR = re.compile(r"(\^\d)")
 
@@ -19,6 +20,8 @@ RE_PLAYER = re.compile(
     r"IP:(?P<ip_address>.*)$",
     re.IGNORECASE,
 )
+
+CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 
 class Group(enum.IntEnum):
@@ -289,3 +292,74 @@ class Cvar(NamedTuple):
     name: str
     value: str
     default: str | None = None
+
+
+class BotCommandConfig(NamedTuple):
+    handler: CommandHandler
+    name: str
+    level: Group = Group.USER
+    alias: str | None = None
+
+
+class Bot(Protocol):
+    game: Game
+
+    @property
+    def rcon(self) -> Any:
+        ...
+
+    @property
+    def message_prefix(self) -> str:
+        ...
+
+    @property
+    def commands(self) -> dict[str, BotCommandConfig]:
+        ...
+
+    async def connect_player(self, player: Player) -> None:
+        ...
+
+    async def disconnect_player(self, slot: str) -> None:
+        ...
+
+    def find_player(self, slot: str) -> Player | None:
+        ...
+
+    async def sync_player(self, slot: str) -> Player:
+        ...
+
+
+class BotPlugin:
+    def __init__(self, bot: Bot) -> None:
+        self.bot = bot
+
+    async def plugin_load(self) -> None:
+        pass
+
+    async def plugin_unload(self) -> None:
+        pass
+
+
+@dataclasses.dataclass
+class BotCommand:
+    plugin: BotPlugin
+    message_type: MessageType
+    player: Player
+    args: list[str] = dataclasses.field(default_factory=list)
+
+    async def message(
+        self, message: str, message_type: MessageType | None = None
+    ) -> None:
+        prefix = self.plugin.bot.message_prefix + " "
+        # TODO: handle wrapping
+        if message_type is None:
+            message_type = self.message_type
+        if message_type is MessageType.PRIVATE:
+            prefix += "^8[pm]^7 "
+            await self.plugin.bot.rcon.private_message(
+                self.player.slot, prefix + message
+            )
+        elif message_type is MessageType.LOUD:
+            await self.plugin.bot.rcon.message(prefix + message)
+        else:
+            await self.plugin.bot.rcon.bigtext(prefix + message)

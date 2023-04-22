@@ -1,25 +1,25 @@
 import asyncio
 import contextlib
-import dataclasses
 import datetime
 import importlib.util
 import inspect
 import logging
 import os
 from collections import defaultdict
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType
-from typing import NamedTuple, TypeVar, cast
+from typing import TypeVar, cast
 
 import aiofiles
 import aiofiles.os
 
 from . import events, rcon, settings, tasks
 from .models import (
+    BotCommandConfig,
+    BotPlugin,
     Game,
     Group,
-    MessageType,
     Player,
 )
 
@@ -28,8 +28,6 @@ __version__ = "30.0.0.rc1"
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
-
-CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 _core_plugins = [
     "urt30t.plugins.core.GameStatePlugin",
@@ -41,55 +39,12 @@ class BotError(Exception):
     pass
 
 
-class BotPlugin:
-    def __init__(self, bot: "Bot") -> None:
-        self.bot = bot
-
-    async def plugin_load(self) -> None:
-        pass
-
-    async def plugin_unload(self) -> None:
-        pass
-
-
-class BotCommandConfig(NamedTuple):
-    handler: CommandHandler
-    name: str
-    level: Group = Group.USER
-    alias: str | None = None
-
-
-@dataclasses.dataclass
-class BotCommand:
-    plugin: BotPlugin
-    message_type: MessageType
-    player: Player
-    args: list[str] = dataclasses.field(default_factory=list)
-
-    async def message(
-        self, message: str, message_type: MessageType | None = None
-    ) -> None:
-        prefix = self.plugin.bot.conf.message_prefix + " "
-        # TODO: handle wrapping
-        if message_type is None:
-            message_type = self.message_type
-        if message_type is MessageType.PRIVATE:
-            prefix += "^8[pm]^7 "
-            await self.plugin.bot.rcon.private_message(
-                self.player.slot, prefix + message
-            )
-        elif message_type is MessageType.LOUD:
-            await self.plugin.bot.rcon.message(prefix + message)
-        else:
-            await self.plugin.bot.rcon.bigtext(prefix + message)
-
-
 class Bot:
     def __init__(self) -> None:
-        self.conf = settings.bot
-        self._started_at = datetime.datetime.now(tz=self.conf.time_zone)
+        self._conf = settings.bot
+        self._started_at = datetime.datetime.now(tz=self._conf.time_zone)
         self._events_queue = asyncio.Queue[events.LogEvent](
-            self.conf.event_queue_max_size
+            self._conf.event_queue_max_size
         )
         self._rcon: rcon.RconClient | None = None
         self._plugins: list[BotPlugin] = []
@@ -111,10 +66,10 @@ class Bot:
         tasks.background(self._run_cleanup())
         tasks.background(
             _tail_log(
-                log_file=self.conf.games_log,
+                log_file=self._conf.games_log,
                 event_queue=self._events_queue,
-                read_delay=self.conf.log_read_delay,
-                check_truncated=self.conf.log_check_truncated,
+                read_delay=self._conf.log_read_delay,
+                check_truncated=self._conf.log_check_truncated,
             )
         )
         self._event_handlers[events.BotStartup].append(self.on_startup)  # type: ignore
@@ -127,6 +82,10 @@ class Bot:
         if self._rcon is None:
             raise RuntimeError("rcon_client_not_set")
         return self._rcon
+
+    @property
+    def message_prefix(self) -> str:
+        return self._conf.message_prefix
 
     @property
     def commands(self) -> dict[str, BotCommandConfig]:
@@ -186,7 +145,7 @@ class Bot:
             event_queue_done()
 
     async def _load_plugins(self) -> None:
-        plugins_specs = [*_core_plugins, *self.conf.plugins]
+        plugins_specs = [*_core_plugins, *self._conf.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
         plugin_classes: list[type[BotPlugin]] = []
         for spec in plugins_specs:

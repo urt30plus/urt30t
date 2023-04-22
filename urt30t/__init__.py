@@ -3,15 +3,15 @@ Urban Terror |30+| Game/Discord Bot
 """
 from .core import (
     Bot,
-    BotCommand,
     BotError,
-    BotPlugin,
-    CommandHandler,
     __version__,
     bot_command,
     bot_subscribe,
 )
 from .models import (
+    BotCommand,
+    BotPlugin,
+    CommandHandler,
     Game,
     GameState,
     GameType,
