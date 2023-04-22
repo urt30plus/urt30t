@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 _T = TypeVar("_T")
 
 _core_plugins = [
-    "urt30t.plugins.core.GameStatePlugin",
-    "urt30t.plugins.core.CommandsPlugin",
+    "urt30t.plugins.gamestate.Plugin",
+    "urt30t.plugins.commands.Plugin",
 ]
 
 
