@@ -5,9 +5,12 @@ from .models import BombAction, FlagAction, KillMode, Team
 
 
 class LogEvent(NamedTuple):
-    type: str
-    game_time: str = "00:00"
+    type: type["GameEvent"]
+    game_time: str = "0:00"
     data: str = ""
+
+    def game_event(self) -> "GameEvent":
+        return self.type.from_log_event(self)
 
 
 @dataclasses.dataclass
@@ -437,6 +440,17 @@ class VotePassed(GameEvent):
 @dataclasses.dataclass
 class Warmup(GameEvent):
     """0:00 Warmup:"""
+
+
+_event_class_by_action: dict[str, type[GameEvent]] = {
+    name.lower(): x
+    for name, x in globals().copy().items()
+    if isinstance(x, type) and issubclass(x, GameEvent)
+}
+
+
+def lookup_event_class(event_type: str) -> type[GameEvent] | None:
+    return _event_class_by_action.get(event_type.lower())
 
 
 def _parse_info_string(data: str) -> dict[str, str]:

@@ -31,12 +31,6 @@ _T = TypeVar("_T")
 EventHandler = Callable[[events.GameEvent], Awaitable[None]]
 CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
-_event_class_by_action: dict[str, type[events.GameEvent]] = {
-    name.lower(): cls
-    for name, cls in inspect.getmembers(events, predicate=inspect.isclass)
-    if issubclass(cls, events.GameEvent)
-}
-
 _core_plugins = [
     "urt30t.plugins.core.GameStatePlugin",
     "urt30t.plugins.core.CommandsPlugin",
@@ -178,12 +172,8 @@ class Bot:
         event_queue_done = self._events_queue.task_done
         handlers_get = self._event_handlers.get
         while log_event := await event_queue_get():
-            if not (event_class := _event_class_by_action.get(log_event.type)):
-                logger.warning("no event class found: %r", log_event)
-                event_queue_done()
-                continue
-            if handlers := handlers_get(event_class):
-                event = event_class.from_log_event(log_event)
+            if handlers := handlers_get(log_event.type):
+                event = log_event.game_event()
                 for handler in handlers:
                     try:
                         await handler(event)
@@ -295,7 +285,7 @@ async def _tail_log(
             cur_pos,
         )
         # signal that we are ready and wait for the event dispatcher to start
-        await event_queue.put(events.LogEvent(type="botstartup"))
+        await event_queue.put(events.LogEvent(type=events.BotStartup))
         await event_queue.join()
         while await asyncio.sleep(read_delay, result=True):
             if not (lines := await fp.readlines()):
@@ -335,23 +325,26 @@ def parse_log_line(line: str) -> events.LogEvent | None:
     game_time = line[:7].strip()
     rest = line[7:].strip()
     event_name, sep, data = rest.partition(":")
+    event_type: type[events.GameEvent] | None
     if sep:
-        event_type = event_name.lower().replace(" ", "")
+        event_name = event_name.replace(" ", "")
         data = data.lstrip()
         if event_name == "red":
-            event_type = "teamscores"
+            event_type = events.TeamScores
             data = f"red:{data}"
+        elif not (event_type := events.lookup_event_class(event_name)):
+            logger.warning("no event class found: %s", line)
     elif event_name.startswith("Bombholder is "):
-        event_type = "bombholder"
+        event_type = events.BombHolder
         data = event_name[14:]
     elif event_name.startswith("Bomb was "):
-        event_type = "bomb"
+        event_type = events.Bomb
         data = event_name[9:]
     elif event_name.startswith("Bomb has been "):
-        event_type = "bomb"
+        event_type = events.Bomb
         data = event_name[14:]
     elif event_name == "Pop!":
-        event_type = "pop"
+        event_type = events.Pop
         data = ""
     elif event_name.startswith(("Session data", "-----")):
         event_type = None

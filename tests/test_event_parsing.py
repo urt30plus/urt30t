@@ -5,7 +5,7 @@ from urt30t.models import BombAction, FlagAction, KillMode, Team
 
 def test_event_account_kick():
     log_event = LogEvent(
-        type="accountkick", data="13 - [ABC]foobar^7 rejected: no account"
+        type=events.AccountKick, data="13 - [ABC]foobar^7 rejected: no account"
     )
     e = events.AccountKick.from_log_event(log_event)
     assert e.slot == "13"
@@ -13,14 +13,14 @@ def test_event_account_kick():
 
 
 def test_event_account_rejected():
-    log_event = LogEvent(type="accountrejected", data='19 -  - "no account"')
+    log_event = LogEvent(type=events.AccountRejected, data='19 -  - "no account"')
     e = events.AccountRejected.from_log_event(log_event)
     assert e.slot == "19"
     assert e.text == '-  - "no account"'
 
 
 def test_event_account_validated():
-    log_event = LogEvent(type="accountvalidated", data='0 - m0neysh0t - 6 - ""')
+    log_event = LogEvent(type=events.AccountValidated, data='0 - m0neysh0t - 6 - ""')
     e = events.AccountValidated.from_log_event(log_event)
     assert e.slot == "0"
     assert e.auth == "m0neysh0t"
@@ -28,7 +28,8 @@ def test_event_account_validated():
 
 def test_event_assist():
     log_event = LogEvent(
-        "assist", data="12 1 0: Trance^7 assisted |30+|spooky^7 to kill |30+|Roberts^7"
+        events.Assist,
+        data="12 1 0: Trance^7 assisted |30+|spooky^7 to kill |30+|Roberts^7",
     )
     e = events.Assist.from_log_event(log_event)
     assert e.slot == "12"
@@ -37,51 +38,51 @@ def test_event_assist():
 
 
 def test_event_bomb_defused():
-    log_event = LogEvent("bomb", data="defused by 11!")
+    log_event = LogEvent(events.Bomb, data="defused by 11!")
     e = events.Bomb.from_log_event(log_event)
     assert e.slot == "11"
     assert e.action is BombAction.DEFUSED
 
 
 def test_event_bomb_tossed():
-    log_event = LogEvent("bomb", data="tossed by 8")
+    log_event = LogEvent(events.Bomb, data="tossed by 8")
     e = events.Bomb.from_log_event(log_event)
     assert e.slot == "8"
     assert e.action is BombAction.TOSSED
 
 
 def test_event_bomb_holder():
-    log_event = LogEvent("bombholder", data="2")
+    log_event = LogEvent(events.BombHolder, data="2")
     e = events.BombHolder.from_log_event(log_event)
     assert e.slot == "2"
 
 
 def test_event_client_begin():
-    log_event = LogEvent("clientbegin", data="4")
+    log_event = LogEvent(events.ClientBegin, data="4")
     e = events.ClientBegin.from_log_event(log_event)
     assert e.slot == "4"
 
 
 def test_event_client_connect():
-    log_event = LogEvent("clientconnect", data="15")
+    log_event = LogEvent(events.ClientConnect, data="15")
     e = events.ClientBegin.from_log_event(log_event)
     assert e.slot == "15"
 
 
 def test_event_client_disconnect():
-    log_event = LogEvent("clientdisconnect", data="15")
+    log_event = LogEvent(events.ClientDisconnect, data="15")
     e = events.ClientDisconnect.from_log_event(log_event)
     assert e.slot == "15"
 
 
 def test_event_client_spawn():
-    log_event = LogEvent("clientspawn", data="15")
+    log_event = LogEvent(events.ClientSpawn, data="15")
     e = events.ClientSpawn.from_log_event(log_event)
     assert e.slot == "15"
 
 
 def test_event_flag():
-    log_event = LogEvent("flag", data="0 2: team_CTF_redflag")
+    log_event = LogEvent(events.Flag, data="0 2: team_CTF_redflag")
     e = events.Flag.from_log_event(log_event)
     assert e.slot == "0"
     assert e.action == FlagAction.CAPTURED
@@ -89,7 +90,7 @@ def test_event_flag():
 
 
 def test_event_flag_capture_time():
-    log_event = LogEvent("flagcapturetime", data="0: 15750")
+    log_event = LogEvent(events.FlagCaptureTime, data="0: 15750")
     e = events.FlagCaptureTime.from_log_event(log_event)
     assert e.slot == "0"
     assert e.cap_time == 15.75
@@ -97,7 +98,7 @@ def test_event_flag_capture_time():
 
 def test_event_init_auth():
     log_event = LogEvent(
-        "initauth",
+        events.InitAuth,
         data=r"\auth\0\auth_status\init\auth_cheaters\1\auth_tags\1\auth_notoriety\1\auth_groups\\auth_owners\579\auth_verbosity\1",
     )
     e = events.InitAuth.from_log_event(log_event)
@@ -106,7 +107,8 @@ def test_event_init_auth():
 
 def test_event_kill():
     log_event = LogEvent(
-        "kill", data="8 5 46: |30+|Mudcat^7 killed |30+|BenderBot^7 by UT_MOD_TOD50"
+        events.Kill,
+        data="8 5 46: |30+|Mudcat^7 killed |30+|BenderBot^7 by UT_MOD_TOD50",
     )
     e = events.Kill.from_log_event(log_event)
     assert e.slot == "8"
@@ -115,21 +117,21 @@ def test_event_kill():
 
 
 def test_event_team_scores():
-    log_event = LogEvent("red", data="red:8  blue:5")
+    log_event = LogEvent(events.TeamScores, data="red:8  blue:5")
     e = events.TeamScores.from_log_event(log_event)
     assert e.red == 8
     assert e.blue == 5
 
 
 def test_event_survivor_winner_player():
-    log_event = LogEvent("survivorwinner", data="2")
+    log_event = LogEvent(events.SurvivorWinner, data="2")
     e = events.SurvivorWinner.from_log_event(log_event)
     assert e.slot == "2"
     assert e.team is None
 
 
 def test_event_survivor_winner_team():
-    log_event = LogEvent("survivorwinner", data="Red")
+    log_event = LogEvent(events.SurvivorWinner, data="Red")
     e = events.SurvivorWinner.from_log_event(log_event)
     assert e.slot is None
     assert e.team == Team.RED
