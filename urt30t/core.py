@@ -14,7 +14,7 @@ from typing import TypeVar, cast
 import aiofiles
 import aiofiles.os
 
-from . import events, rcon, settings, tasks
+from . import discord30, events, rcon, settings, tasks
 from .models import (
     BotCommandConfig,
     BotPlugin,
@@ -47,6 +47,7 @@ class Bot:
             self._conf.event_queue_max_size
         )
         self._rcon: rcon.RconClient | None = None
+        self._discord: discord30.DiscordClient | None = None
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
             type[events.GameEvent], list[events.EventHandler]
@@ -140,11 +141,19 @@ class Bot:
         # TODO: db updates?
 
     async def on_startup(self, event: events.BotStartup) -> None:
-        pass
+        logger.debug(event)
+        if settings.discord:
+            self._discord = discord30.DiscordClient(
+                bot_user=settings.discord.user,
+                server_name=settings.discord.server_name,
+            )
+            await discord30.start_jobs(self._discord, self.rcon)
 
     async def on_shutdown(self) -> None:
         await self._unload_plugins()
         self.rcon.close()
+        if self._discord:
+            await self._discord.close()
         logger.info("%s stopped", self)
 
     async def _dispatch_events(self) -> None:
