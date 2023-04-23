@@ -155,7 +155,7 @@ class Player:
     guid: str | None = None
     auth: str | None = None
     team: Team = Team.UNKNOWN
-    score: PlayerScore = PlayerScore(0, 0, 0)
+    score: PlayerScore = PlayerScore(0, 0, 0)  # noqa: RUF009
     ping: int = 0
     ip_address: str | None = None
     validated: bool = False

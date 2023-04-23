@@ -7,7 +7,7 @@ strict = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["uvloop"]
+module = ["discord", "uvloop"]
 ignore_missing_imports = true
 
 [tool.ruff]
