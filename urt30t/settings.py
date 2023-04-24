@@ -5,9 +5,7 @@ import logging
 import zoneinfo
 from pathlib import Path
 
-from pydantic import BaseSettings, Required, validator
-
-logger = logging.getLogger(__name__)
+from pydantic import BaseSettings, Required, root_validator, validator
 
 BASE_PATH = Path(__file__).parent.parent
 
@@ -23,6 +21,64 @@ class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
     level_bot: str = "INFO"
     level_bot_rcon: str = "INFO"
     level_bot_discord30: str = "INFO"
+
+
+log = LogSettings()
+
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] %(name)s:%(funcName)s %(message)s"
+)
+logging.getLogger().setLevel(log.level_root)
+logging.getLogger("urt30t").setLevel(log.level_bot)
+logging.getLogger("urt30t.rcon").setLevel(log.level_bot_rcon)
+logging.getLogger("urt30t.discord30").setLevel(log.level_bot_discord30)
+
+logger = logging.getLogger(__name__)
+
+
+class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
+    log_parsing: bool = True
+    event_dispatch: bool = True
+    command_dispatch: bool = True
+    discord_updates: bool = True
+
+    @validator("event_dispatch", always=True)
+    def validate_event_dispatch(
+        cls,
+        v: bool,  # noqa: FBT001
+        values: dict[str, bool],
+    ) -> bool:
+        if v and not values.get("log_parsing"):
+            logger.warning(
+                "Event Dispatch is disabled because Log Parsing is not enabled"
+            )
+            return False
+        return v
+
+    @validator("command_dispatch", always=True)
+    def validate_command_dispatch(
+        cls, v: bool, values: dict[str, bool]  # noqa: FBT001
+    ) -> bool:
+        if v and not values.get("event_dispatch"):
+            logger.warning(
+                "Command Dispatch is disabled because Event Dispatch is not enabled"
+            )
+            return False
+        return v
+
+    @root_validator
+    def validate_discord_updates(cls, values: dict[str, bool]) -> dict[str, bool]:
+        if not any(
+            (
+                values.get("log_parsing"),
+                values.get("event_dispatch"),
+                values.get("command_dispatch"),
+                values.get("discord_updates"),
+            )
+        ):
+            msg = "At least one feature must be enabled"
+            raise ValueError(msg)
+        return values
 
 
 class BotSettings(SharedSettings, env_prefix="URT30T_"):
@@ -67,17 +123,9 @@ class DiscordSettings(SharedSettings, env_prefix="URT30T_DISCORD_"):
     current_map_update_timeout: float = 5.0
 
 
+features = FeatureSettings()
 bot = BotSettings()
-log = LogSettings()
 rcon = RconSettings()
-
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(name)s:%(funcName)s %(message)s"
-)
-logging.getLogger().setLevel(log.level_root)
-logging.getLogger("urt30t").setLevel(log.level_bot)
-logging.getLogger("urt30t.rcon").setLevel(log.level_bot_rcon)
-logging.getLogger("urt30t.discord30").setLevel(log.level_bot_discord30)
 
 try:
     discord = DiscordSettings()

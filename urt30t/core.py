@@ -23,16 +23,11 @@ from .models import (
     Player,
 )
 
-__version__ = "30.0.0.rc1"
+__version__ = "0.0.1"
 
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
-
-_core_plugins = [
-    "urt30t.plugins.gamestate.Plugin",
-    "urt30t.plugins.commands.Plugin",
-]
 
 
 class BotError(Exception):
@@ -65,18 +60,38 @@ class Bot:
         )
         logger.info(self._rcon)
         tasks.background(self._run_cleanup())
-        tasks.background(
-            _tail_log(
-                log_file=self._conf.games_log,
-                event_queue=self._events_queue,
-                read_delay=self._conf.log_read_delay,
-                check_truncated=self._conf.log_check_truncated,
+
+        if settings.features.log_parsing:
+            tasks.background(
+                _tail_log(
+                    log_file=self._conf.games_log,
+                    event_queue=self._events_queue,
+                    read_delay=self._conf.log_read_delay,
+                    check_truncated=self._conf.log_check_truncated,
+                )
             )
-        )
-        self._event_handlers[events.BotStartup].append(self.on_startup)  # type: ignore
+        else:
+            logger.warning("Log Parsing is not enabled")
+
         await self.sync_game()
         await self._load_plugins()
-        await self._dispatch_events()
+
+        if settings.features.event_dispatch:
+            self._event_handlers[events.BotStartup].append(
+                self.on_startup  # type: ignore
+            )
+            await self._dispatch_events()
+        else:
+            logger.warning("Event Dispatch is not enabled")
+            if settings.features.log_parsing:
+                event = await self._events_queue.get()
+                self._events_queue.task_done()
+            else:
+                event = events.LogEvent(type=events.BotStartup)
+
+            await self.on_startup(events.BotStartup.from_log_event(event))
+            while await self._events_queue.get():
+                pass
 
     @property
     def rcon(self) -> rcon.RconClient:
@@ -142,12 +157,14 @@ class Bot:
 
     async def on_startup(self, event: events.BotStartup) -> None:
         logger.debug(event)
-        if settings.discord:
+        if settings.features.discord_updates and settings.discord:
             self._discord = discord30.DiscordClient(
                 bot_user=settings.discord.user,
                 server_name=settings.discord.server_name,
             )
             await discord30.start_jobs(self._discord, self.rcon)
+        else:
+            logger.warning("Discord Updates are not enabled")
 
     async def on_shutdown(self) -> None:
         await self._unload_plugins()
@@ -174,7 +191,12 @@ class Bot:
             event_queue_done()
 
     async def _load_plugins(self) -> None:
-        plugins_specs = [*_core_plugins, *self._conf.plugins]
+        core_plugins = ["urt30t.plugins.gamestate.Plugin"]
+        if settings.features.command_dispatch:
+            core_plugins.append("urt30t.plugins.commands.Plugin")
+        else:
+            logger.warning("Command Dispatch is not enabled")
+        plugins_specs = [*core_plugins, *self._conf.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
         plugin_classes: list[type[BotPlugin]] = []
         for spec in plugins_specs:
