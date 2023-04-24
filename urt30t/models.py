@@ -287,9 +287,9 @@ class Game:
             type=GameType[g["GameType"]],
             time=g["GameTime"],
             map_name=map_name,
-            state=GameState.WARMUP if g["WarmupPhase"] else GameState.LIVE,
-            match_mode=g["MatchMode"],
-            scores=g["Scores"],
+            state=GameState.WARMUP if g.get("WarmupPhase") else GameState.LIVE,
+            match_mode=g.get("MatchMode", False),
+            scores=g.get("Scores"),
             players={p.slot: p for p in players},
         )
 
