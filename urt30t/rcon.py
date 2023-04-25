@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from asyncio.transports import DatagramTransport
+from pathlib import Path
 from typing import Any, NamedTuple, TypedDict, cast
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,7 @@ class RconClient:
         self._transport.close()
 
     async def cvar(self, name: str) -> Cvar | None:
-        if not (data := await self._execute(name)):
+        if not (data := await self._execute(name, retry=True)):
             return None
 
         cvar = data.decode(encoding=_ENCODING)
@@ -167,6 +168,17 @@ class RconClient:
 
         return Cvar(name=name, value=m["value"], default=default)
 
+    async def cvarlist(self, prefix: str) -> dict[str, str]:
+        result = {}
+        if not (data := await self._execute(f"cvarlist {prefix}", multi_recv=True)):
+            return result
+        items = data.decode(encoding=_ENCODING).splitlines()
+        for cv in items[:-3]:
+            if item := cv[8:].strip():
+                name, _, value = item.partition(' "')
+                result[name] = value.removesuffix('"')
+        return result
+
     async def cycle_map(self) -> None:
         await self._execute(b"cyclemap")
 
@@ -177,6 +189,13 @@ class RconClient:
 
     async def map_restart(self) -> None:
         await self._execute(b"map_restart")
+
+    async def mapcycle_file(self) -> Path | None:
+        if fs_data := await self.cvarlist("fs_"):
+            base_path = Path(fs_data["fs_homepath"]) / fs_data["fs_game"]
+            map_file = await self.cvar("g_mapcycle")
+            return base_path / map_file.value
+        return None
 
     async def maps(self) -> list[str]:
         if not (
