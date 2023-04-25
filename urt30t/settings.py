@@ -81,6 +81,26 @@ class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
         return values
 
 
+class DiscordSettings(SharedSettings, env_prefix="URT30T_DISCORD_"):
+    user: str = Required
+    token: str = Required
+    server_name: str = Required
+
+    updates_channel_name: str = Required
+
+    gameinfo_updates_enabled: bool = True
+    gameinfo_embed_title: str = Required
+    gameinfo_update_delay: float = 60.0
+    gameinfo_update_delay_players: float = 5.0
+    gameinfo_update_timeout: float = 5.0
+
+    mapcycle_updates_enabled: bool = True
+    mapcycle_embed_title: str = Required
+    mapcycle_update_delay: float = 3600.0
+    mapcycle_update_timeout: float = 30.0
+    mapcycle_file: Path | None = None
+
+
 class BotSettings(SharedSettings, env_prefix="URT30T_"):
     name: str = "30+Bot"
     message_prefix: str = "^0(^230+Bot^0)^7:"
@@ -94,6 +114,17 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     log_read_delay: float = 0.250
     log_check_truncated: bool = False
     log_replay_from_start: bool = False
+
+    discord: DiscordSettings | None = None
+
+    @validator("discord", always=True)
+    def _discord_settings(cls, v) -> DiscordSettings | None:
+        if v is None:
+            try:
+                v = DiscordSettings()
+            except ValueError:
+                logger.exception("Failed to load Discord Settings")
+        return v
 
     @validator("time_zone", pre=True)
     def _time_zone_validate(cls, v: str | zoneinfo.ZoneInfo) -> zoneinfo.ZoneInfo:
@@ -109,27 +140,6 @@ class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
     recv_timeout: float = 0.220
 
 
-class DiscordSettings(SharedSettings, env_prefix="URT30T_DISCORD_"):
-    user: str = Required
-    token: str = Required
-    server_name: str = Required
-    update_channel_name: str = Required
-    mapcycle_embed_title: str = Required
-    mapcycle_file: str = Required
-    mapcycle_update_delay: float = 3600.0
-    mapcycle_update_timeout: float = 30.0
-    current_map_embed_title: str = Required
-    current_map_update_delay: float = 5.0
-    current_map_update_delay_no_players: float = 60.0
-    current_map_update_timeout: float = 5.0
-
-
 features = FeatureSettings()
 bot = BotSettings()
 rcon = RconSettings()
-
-try:
-    discord = DiscordSettings()
-except Exception as exc:
-    logger.warning("Failed to load Discord settings: %r", exc)
-    discord = None  # type: ignore[assignment]

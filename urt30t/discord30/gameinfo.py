@@ -1,21 +1,32 @@
-import asyncio
 import logging
 import time
 
 import discord
 
-from .. import rcon, settings
 from ..models import Game, Player
-from .client import DiscordClient
+from . import EmbedUpdater
 
 logger = logging.getLogger(__name__)
-
-START_TICK = time.monotonic()
 
 # Max embed field length is roughly 48. We use 18 to display the
 # ` [K../D./A.] 123ms` scores, and we want to leave a few chars
 # for it to fit comfortably
 EMBED_NO_PLAYERS = "```\n" + " " * (24 + 18) + "\n```"
+
+
+async def update(updater: EmbedUpdater, game: Game) -> None:
+    logger.info("Game Info Updater Start")
+    message = await updater.fetch_embed_message()
+    embed = create_server_embed(updater, game)
+    if message:
+        if should_update_embed(message, embed):
+            logger.info("Updating existing message: %s", message.id)
+            await message.edit(embed=embed)
+        else:
+            logger.info("Existing message embed is up to date")
+    else:
+        logger.info("Sending new message")
+        await updater.new_message(embed=embed)
 
 
 def format_player(p: Player) -> str:
@@ -67,11 +78,11 @@ def add_mapinfo_field(embed: discord.Embed, game: Game) -> None:
     embed.add_field(name="Game Time / Player Counts", value=info, inline=False)
 
 
-def create_server_embed(game: Game | None) -> discord.Embed:
-    embed = discord.Embed(title=settings.discord.current_map_embed_title)
+def create_server_embed(updater: EmbedUpdater, game: Game | None) -> discord.Embed:
+    embed = discord.Embed(title=updater.embed_title)
 
     last_updated = f"updated <t:{int(time.time())}:R>"
-    connect_info = f"`/connect game.urt-30plus.org:{settings.rcon.port}`"
+    connect_info = "`/connect game.urt-30plus.org`"  # TODO: port number
 
     if game:
         if game_type := game.type:
@@ -96,15 +107,6 @@ def create_server_embed(game: Game | None) -> discord.Embed:
         embed.add_field(name=connect_info, value=last_updated, inline=False)
 
     return embed
-
-
-async def fetch_game(rcon_client: rcon.RconClient) -> Game | None:
-    try:
-        result = await rcon_client.players()
-        return Game.from_dict(result)
-    except Exception:
-        logger.exception("Failed to get server info")
-        return None
 
 
 def should_update_embed(message: discord.Message, embed: discord.Embed) -> bool:
@@ -136,38 +138,3 @@ def same_map_and_specs(s1: Game | None, s2: Game | None) -> bool:
         and len(s2.spectators) == len(s2.players)
         and sorted(s1.spectators) == sorted(s2.spectators)
     )
-
-
-async def run(client: DiscordClient, rcon_client: rcon.RconClient) -> None:
-    logger.info("Game Info Updater Start: %s", client)
-    channel_name = settings.discord.update_channel_name
-    embed_title = settings.discord.current_map_embed_title
-    delay_players = settings.discord.current_map_update_delay
-    delay_no_players = settings.discord.current_map_update_delay_no_players
-    prev_game = None
-    while True:
-        channel_message, game = await asyncio.gather(
-            client.fetch_embed_message(channel_name, embed_title),
-            fetch_game(rcon_client),
-        )
-        channel, message = channel_message
-        embed = create_server_embed(game)
-        if message:
-            if should_update_embed(message, embed):
-                logger.info("Updating existing message: %s", message.id)
-                await message.edit(embed=embed)
-                delay = delay_players
-            else:
-                logger.info("Existing message embed is up to date")
-                delay = delay_no_players
-        else:
-            logger.info("Sending new message")
-            await channel.send(embed=embed)
-            delay = delay_players
-
-        if same_map_and_specs(prev_game, game):
-            delay = delay_no_players
-
-        prev_game = game
-
-        await asyncio.sleep(delay)

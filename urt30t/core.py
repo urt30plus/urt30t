@@ -9,12 +9,14 @@ from collections import defaultdict
 from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
+import discord
 
-from . import discord30, events, rcon, settings, tasks, version
+from . import events, rcon, settings, tasks, version
+from .discord30 import gameinfo, mapcycle
 from .models import (
     BotCommandConfig,
     BotError,
@@ -37,7 +39,7 @@ class Bot:
             self._conf.event_queue_max_size
         )
         self._rcon: rcon.RconClient | None = None
-        self._discord: discord30.DiscordClient | None = None
+        self._discord: DiscordClient | None = None
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
             type[events.GameEvent], list[events.EventHandler]
@@ -154,12 +156,14 @@ class Bot:
             logger.info(self._rcon)
             await self.sync_game()
 
-        if settings.features.discord_updates and settings.discord:
-            self._discord = discord30.DiscordClient(
-                bot_user=settings.discord.user,
-                server_name=settings.discord.server_name,
+        if settings.features.discord_updates and self._conf.discord:
+            self._discord = DiscordClient(
+                bot_user=self._conf.discord.user,
+                server_name=self._conf.discord.server_name,
             )
-            await discord30.start_jobs(self._discord, self.rcon)
+            await self._discord.login(self._conf.discord.token)
+            tasks.background(self._discord_update_gameinfo())
+            tasks.background(self._discord_update_mapcycle())
         else:
             logger.warning("Discord Updates are not enabled")
 
@@ -246,8 +250,191 @@ class Bot:
         finally:
             await self.on_shutdown()
 
+    async def _discord_update_gameinfo(self) -> None:
+        if not self._conf.discord.gameinfo_updates_enabled:
+            logger.warning("Discord GameInfo Updates are not enabled")
+            return
+        channel_name = self._conf.discord.updates_channel_name
+        embed_title = self._conf.discord.gameinfo_embed_title
+        delay_updates = self._conf.discord.gameinfo_update_delay_players
+        delay_no_updates = self._conf.discord.gameinfo_update_delay
+        timeout = self._conf.discord.gameinfo_update_timeout
+        logger.info("Starting Discord GameInfo Updater")
+        logger.info(
+            "Channel Name [%s], Embed Title [%s], delay_no_players=[%s], "
+            "delay_players=[%s], timeout=[%s]",
+            channel_name,
+            embed_title,
+            delay_no_updates,
+            delay_updates,
+            timeout,
+        )
+        updater = DiscordEmbedUpdater(
+            client=self._discord, channel_name=channel_name, embed_title=embed_title
+        )
+        while True:
+            game = await self._rcon.players()
+            if await gameinfo.update(updater, Game.from_dict(game)):
+                await asyncio.sleep(delay_updates)
+            else:
+                await asyncio.sleep(delay_no_updates)
+
+    async def _discord_update_mapcycle(self) -> None:
+        if not self._conf.discord.mapcycle_updates_enabled:
+            logger.warning("Discord Mapcycle Updates are not enabled")
+            return
+        if not (mapcycle_file := self._conf.discord.mapcycle_file):
+            mapcycle_file = await self._rcon.mapcycle_file()
+        if not mapcycle_file.exists():
+            logger.warning(
+                "Discord Mapcycle Updates disabled, mapcycle file does not exist: %s",
+                mapcycle_file,
+            )
+            return
+        channel_name = self._conf.discord.updates_channel_name
+        embed_title = self._conf.discord.mapcycle_embed_title
+        delay = self._conf.discord.mapcycle_update_delay
+        timeout = self._conf.discord.mapcycle_update_timeout
+        logger.info("Starting Discord Mapcycle Updater")
+        logger.info(
+            "Channel Name [%s], Embed Title [%s], delay=[%s], timeout=[%s], file=[%s]",
+            channel_name,
+            embed_title,
+            delay,
+            timeout,
+            mapcycle_file,
+        )
+        updater = DiscordEmbedUpdater(
+            client=self._discord, channel_name=channel_name, embed_title=embed_title
+        )
+        while True:
+            await mapcycle.update(updater, mapcycle_file)
+            await asyncio.sleep(delay)
+
     def __repr__(self) -> str:
         return f"Bot(v{version.__version__}, started={self._started_at})"
+
+
+class DiscordClient(discord.Client):
+    def __init__(
+        self,
+        bot_user: str,
+        server_name: str,
+        **kwargs: Any,
+    ) -> None:
+        if "intents" not in kwargs:
+            kwargs["intents"] = discord.Intents.all()
+        super().__init__(**kwargs)
+        self.bot_user = bot_user
+        self.server_name = server_name
+        self._guild: discord.Guild | None = None
+
+    async def login(self, token: str) -> None:
+        await super().login(token)
+        async for guild in super().fetch_guilds():
+            if guild.name == self.server_name:
+                self._guild = guild
+                break
+        else:
+            msg = f"Discord Server not found: {self.server_name}"
+            raise BotError(msg)
+
+    async def _channel_by_name(self, name: str) -> discord.TextChannel:
+        logger.info("Looking for channel named [%s]", name)
+        if self._guild is None:
+            msg = f"Discord Guild not found: {name}"
+            raise BotError(msg)
+        channels = await self._guild.fetch_channels()
+        for ch in channels:
+            if ch.name == name:
+                logger.info("Found channel: %s [%s]", ch.name, ch.id)
+                if isinstance(ch, discord.TextChannel):
+                    return ch
+                msg = f"Discord Invalid Channel Type: {ch}"
+                raise BotError(msg)
+
+        msg = f"Discord Channel Not Found: {name}"
+        raise BotError(msg)
+
+    async def _last_messages(
+        self,
+        channel: discord.TextChannel,
+        limit: int = 1,
+    ) -> list[discord.Message]:
+        messages = []
+        logger.info(
+            "Fetching last %s messages if posted by %r in channel %s",
+            limit,
+            self.bot_user,
+            channel.name,
+        )
+        async for msg in channel.history(limit=limit):
+            author = msg.author
+            author_user = f"{author.name}#{author.discriminator}"
+            if author.bot and author_user == self.bot_user:
+                messages.append(msg)
+        logger.info("Found [%s] messages", len(messages))
+        return messages
+
+    async def _find_message_by_embed_title(
+        self,
+        channel: discord.TextChannel,
+        embed_title: str,
+        limit: int = 5,
+    ) -> discord.Message | None:
+        messages = await self._last_messages(channel, limit=limit)
+        logger.info("Looking for message with the %r embed title", embed_title)
+        for msg in messages:
+            for embed in msg.embeds:
+                if embed.title == embed_title:
+                    return msg
+        return None
+
+    async def fetch_embed_message(
+        self,
+        channel_name: str,
+        embed_title: str,
+        limit: int = 5,
+    ) -> tuple[discord.TextChannel, discord.Message | None]:
+        channel = await self._channel_by_name(channel_name)
+        message = await self._find_message_by_embed_title(
+            channel=channel,
+            embed_title=embed_title,
+            limit=limit,
+        )
+        return channel, message
+
+    def __str__(self) -> str:
+        return f"DiscordClient(bot_user={self.bot_user!r}, server={self.server_name!r})"
+
+
+class DiscordEmbedUpdater:
+    def __init__(
+        self, client: DiscordClient, channel_name: str, embed_title: str
+    ) -> None:
+        self.client = client
+        self.channel_name = channel_name
+        self.embed_title = embed_title
+        self._channel: discord.TextChannel | None = None
+
+    async def fetch_embed_message(self) -> discord.Message | None:
+        channel, message = await self.client.fetch_embed_message(
+            self.channel_name, self.embed_title, limit=20
+        )
+        self._channel = channel
+        return message
+
+    async def new_message(self, embed: discord.Embed) -> discord.Message:
+        if self._channel is None:
+            msg = f"Discord Channel has not be fetched for: {self.channel_name}"
+            raise BotError(msg)
+        return await self._channel.send(embed=embed)
+
+    def __repr__(self) -> str:
+        return (
+            f"DiscordEmbedUpdater(channel_name={self.channel_name!r}, "
+            f"embed_title={self.embed_title!r})"
+        )
 
 
 def bot_command(
