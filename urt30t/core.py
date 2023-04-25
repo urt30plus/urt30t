@@ -14,7 +14,7 @@ from typing import TypeVar, cast
 import aiofiles
 import aiofiles.os
 
-from . import discord30, events, rcon, settings, tasks
+from . import discord30, events, rcon, settings, tasks, version
 from .models import (
     BotCommandConfig,
     BotPlugin,
@@ -23,15 +23,9 @@ from .models import (
     Player,
 )
 
-__version__ = "0.0.1"
-
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
-
-
-class BotError(Exception):
-    pass
 
 
 class Bot:
@@ -247,7 +241,7 @@ class Bot:
             await self.on_shutdown()
 
     def __repr__(self) -> str:
-        return f"Bot(v{__version__}, started={self._started_at})"
+        return f"Bot(v{version.__version__}, started={self._started_at})"
 
 
 def bot_command(

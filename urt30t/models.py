@@ -10,6 +10,10 @@ from . import rcon
 CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 
+class BotError(Exception):
+    pass
+
+
 class Group(enum.IntEnum):
     UNKNOWN = -1
     GUEST = 1

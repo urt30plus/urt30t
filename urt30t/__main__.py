@@ -6,9 +6,9 @@ import contextlib
 
 
 async def async_main() -> None:
-    import urt30t
+    import urt30t.core
 
-    await urt30t.Bot().run()
+    await urt30t.core.Bot().run()
 
 
 if __name__ == "__main__":
