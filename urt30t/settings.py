@@ -93,6 +93,7 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     plugins: list[str] = []
     log_read_delay: float = 0.250
     log_check_truncated: bool = False
+    log_replay_from_start: bool = False
 
     @validator("time_zone", pre=True)
     def _time_zone_validate(cls, v: str | zoneinfo.ZoneInfo) -> zoneinfo.ZoneInfo:

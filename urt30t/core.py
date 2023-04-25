@@ -17,6 +17,7 @@ import aiofiles.os
 from . import discord30, events, rcon, settings, tasks, version
 from .models import (
     BotCommandConfig,
+    BotError,
     BotPlugin,
     Game,
     Group,
@@ -46,13 +47,6 @@ class Bot:
 
     async def run(self) -> None:
         logger.info("%s running", self)
-        self._rcon = await rcon.create_client(
-            host=settings.rcon.host,
-            port=settings.rcon.port,
-            password=settings.rcon.password,
-            recv_timeout=settings.rcon.recv_timeout,
-        )
-        logger.info(self._rcon)
         tasks.background(self._run_cleanup())
 
         if settings.features.log_parsing:
@@ -67,10 +61,8 @@ class Bot:
         else:
             logger.warning("Log Parsing is not enabled")
 
-        await self.sync_game()
-        await self._load_plugins()
-
         if settings.features.event_dispatch:
+            await self._load_plugins()
             self._event_handlers[events.BotStartup].append(
                 self.on_startup  # type: ignore
             )
@@ -90,7 +82,8 @@ class Bot:
     @property
     def rcon(self) -> rcon.RconClient:
         if self._rcon is None:
-            raise RuntimeError("rcon_client_not_set")
+            msg = "Rcon Client is not initialized"
+            raise BotError(msg)
         return self._rcon
 
     @property
@@ -151,6 +144,16 @@ class Bot:
 
     async def on_startup(self, event: events.BotStartup) -> None:
         logger.debug(event)
+        if settings.features.command_dispatch or settings.features.discord_updates:
+            self._rcon = await rcon.create_client(
+                host=settings.rcon.host,
+                port=settings.rcon.port,
+                password=settings.rcon.password,
+                recv_timeout=settings.rcon.recv_timeout,
+            )
+            logger.info(self._rcon)
+            await self.sync_game()
+
         if settings.features.discord_updates and settings.discord:
             self._discord = discord30.DiscordClient(
                 bot_user=settings.discord.user,
@@ -162,7 +165,8 @@ class Bot:
 
     async def on_shutdown(self) -> None:
         await self._unload_plugins()
-        self.rcon.close()
+        if self._rcon:
+            self._rcon.close()
         if self._discord:
             await self._discord.close()
         logger.info("%s stopped", self)
@@ -180,7 +184,7 @@ class Bot:
                     except Exception:
                         logger.exception("%r failed to handle %r", handler, event)
             else:
-                logger.debug("no handler registered for event: %r", log_event)
+                logger.warning("no handler registered for event: %r", log_event)
 
             event_queue_done()
 
@@ -226,16 +230,18 @@ class Bot:
                 logger.info("added %r", resolved)
 
     async def _unload_plugins(self) -> None:
-        await asyncio.wait(
-            [asyncio.create_task(p.plugin_unload()) for p in self._plugins], timeout=5.0
-        )
+        for p in self._plugins:
+            try:
+                await p.plugin_unload()
+            except Exception:
+                logger.exception("Plugin %s failed to unload", p)
 
     async def _run_cleanup(self) -> None:
         fut: asyncio.Future[None] = asyncio.Future()
         try:
             await fut
         except asyncio.CancelledError:
-            logger.info("triggered")
+            logger.info("Shutdown cleanup has been triggered")
             raise
         finally:
             await self.on_shutdown()
@@ -281,8 +287,13 @@ async def _tail_log(
     check_truncated: bool,
 ) -> None:
     logger.info("Parsing game log file %s", log_file)
+    if check_truncated and settings.bot.log_replay_from_start:
+        check_truncated = False
     async with aiofiles.open(log_file, encoding="utf-8") as fp:
-        cur_pos = await fp.seek(0, os.SEEK_END)
+        if settings.bot.log_replay_from_start:
+            cur_pos = await fp.tell()
+        else:
+            cur_pos = await fp.seek(0, os.SEEK_END)
         logger.info(
             "read delay [%s], check truncated [%s], current pos [%s]",
             read_delay,
