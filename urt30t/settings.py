@@ -18,9 +18,11 @@ class SharedSettings(BaseSettings):
 
 class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
     level_root: str = "WARNING"
-    level_bot: str = "INFO"
-    level_bot_rcon: str = "INFO"
-    level_bot_discord30: str = "INFO"
+    level_discord: str = "WARNING"
+    level_core: str = "INFO"
+    level_rcon: str = "INFO"
+    level_discord30: str = "INFO"
+    level_plugins: str = "INFO"
 
 
 log = LogSettings()
@@ -29,9 +31,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s:%(funcName)s %(message)s"
 )
 logging.getLogger().setLevel(log.level_root)
-logging.getLogger("urt30t").setLevel(log.level_bot)
-logging.getLogger("urt30t.rcon").setLevel(log.level_bot_rcon)
-logging.getLogger("urt30t.discord30").setLevel(log.level_bot_discord30)
+logging.getLogger("discord").setLevel(log.level_discord)
+logging.getLogger("urt30t.core").setLevel(log.level_core)
+logging.getLogger("urt30t.rcon").setLevel(log.level_rcon)
+logging.getLogger("urt30t.discord30").setLevel(log.level_discord30)
+logging.getLogger("urt30t.plugins").setLevel(log.level_plugins)
 
 logger = logging.getLogger(__name__)
 
