@@ -33,7 +33,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
             self.fetch_game_info(),
         )
 
-        if same_map_and_specs(game, self._last_game):
+        if message and same_map_and_specs(game, self._last_game):
             result = False
         else:
             embed = create_server_embed(game, self.embed_title)
