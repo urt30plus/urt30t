@@ -8,7 +8,7 @@ import discord
 
 from .. import rcon
 from ..models import GameType
-from . import DiscordAPIClient, DiscordEmbedUpdater
+from . import DiscordClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ MapCycle = dict[str, dict[str, str]]
 class MapCycleUpdater(DiscordEmbedUpdater):
     def __init__(
         self,
-        api_client: DiscordAPIClient,
+        api_client: DiscordClient,
         rcon_client: rcon.RconClient,
         channel_name: str,
         embed_title: str,

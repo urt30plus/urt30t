@@ -6,7 +6,7 @@ import discord
 
 from .. import rcon
 from ..models import Game, Player
-from . import DiscordAPIClient, DiscordEmbedUpdater
+from . import DiscordClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ EMBED_NO_PLAYERS = "```\n" + " " * (24 + 18) + "\n```"
 class GameInfoUpdater(DiscordEmbedUpdater):
     def __init__(
         self,
-        api_client: DiscordAPIClient,
+        api_client: DiscordClient,
         rcon_client: rcon.RconClient,
         channel_name: str,
         embed_title: str,

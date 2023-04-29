@@ -1,14 +1,14 @@
 from .core import (
-    DiscordAPIClient,
-    DiscordAPIClientError,
+    DiscordClient,
+    DiscordClientError,
     DiscordEmbedUpdater,
 )
 from .gameinfo import GameInfoUpdater
 from .mapcycle import MapCycleUpdater
 
 __all__ = [
-    "DiscordAPIClient",
-    "DiscordAPIClientError",
+    "DiscordClient",
+    "DiscordClientError",
     "DiscordEmbedUpdater",
     "GameInfoUpdater",
     "MapCycleUpdater",

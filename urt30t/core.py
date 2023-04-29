@@ -37,7 +37,7 @@ class Bot:
             self._conf.event_queue_max_size
         )
         self._rcon: rcon.RconClient | None = None
-        self._discord: discord30.DiscordAPIClient | None = None
+        self._discord: discord30.DiscordClient | None = None
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
             type[events.GameEvent], list[events.EventHandler]
@@ -155,7 +155,7 @@ class Bot:
             await self.sync_game()
 
         if settings.features.discord_updates and self._conf.discord:
-            self._discord = discord30.DiscordAPIClient(
+            self._discord = discord30.DiscordClient(
                 bot_user=self._conf.discord.user,
                 server_name=self._conf.discord.server_name,
             )
@@ -253,7 +253,7 @@ class Bot:
             await self.on_shutdown()
 
     async def _discord_update_gameinfo(
-        self, api_client: discord30.DiscordAPIClient, config: settings.DiscordSettings
+        self, api_client: discord30.DiscordClient, config: settings.DiscordSettings
     ) -> None:
         if not config.gameinfo_updates_enabled:
             logger.warning("Discord GameInfo Updates are not enabled")
@@ -284,7 +284,7 @@ class Bot:
                 await asyncio.sleep(delay_no_updates)
 
     async def _discord_update_mapcycle(
-        self, api_client: discord30.DiscordAPIClient, config: settings.DiscordSettings
+        self, api_client: discord30.DiscordClient, config: settings.DiscordSettings
     ) -> None:
         if not config.mapcycle_updates_enabled:
             logger.warning("Discord Mapcycle Updates are not enabled")

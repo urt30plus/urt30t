@@ -9,11 +9,11 @@ from .. import rcon
 logger = logging.getLogger(__name__)
 
 
-class DiscordAPIClientError(Exception):
+class DiscordClientError(Exception):
     pass
 
 
-class DiscordAPIClient(discord.Client):
+class DiscordClient(discord.Client):
     def __init__(
         self,
         bot_user: str,
@@ -36,7 +36,7 @@ class DiscordAPIClient(discord.Client):
                 break
         else:
             msg = f"Discord Server not found: {self.server_name}"
-            raise DiscordAPIClientError(msg)
+            raise DiscordClientError(msg)
 
     async def fetch_embed_message(
         self,
@@ -62,7 +62,7 @@ class DiscordAPIClient(discord.Client):
         logger.debug("Looking for channel named [%s]", name)
         if self._guild is None:
             msg = f"Discord Guild not found: {name}"
-            raise DiscordAPIClientError(msg)
+            raise DiscordClientError(msg)
 
         for ch in await self._guild.fetch_channels():
             if ch.name == name:
@@ -70,10 +70,10 @@ class DiscordAPIClient(discord.Client):
                 if isinstance(ch, discord.TextChannel):
                     return ch
                 msg = f"Discord Invalid Channel Type: {ch}"
-                raise DiscordAPIClientError(msg)
+                raise DiscordClientError(msg)
 
         msg = f"Discord Channel Not Found: {name}"
-        raise DiscordAPIClientError(msg)
+        raise DiscordClientError(msg)
 
     def __repr__(self) -> str:
         return (
@@ -84,7 +84,7 @@ class DiscordAPIClient(discord.Client):
 class DiscordEmbedUpdater(abc.ABC):
     def __init__(
         self,
-        api_client: DiscordAPIClient,
+        api_client: DiscordClient,
         rcon_client: rcon.RconClient,
         channel_name: str,
         embed_title: str,
@@ -105,7 +105,7 @@ class DiscordEmbedUpdater(abc.ABC):
     async def new_message(self, embed: discord.Embed) -> discord.Message:
         if self._channel is None:
             msg = f"Discord Channel has not be fetched for: {self.channel_name}"
-            raise DiscordAPIClientError(msg)
+            raise DiscordClientError(msg)
         return await self._channel.send(embed=embed)
 
     @abc.abstractmethod
