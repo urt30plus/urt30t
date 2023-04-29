@@ -13,6 +13,6 @@ Restart=on-failure
 RestartSec=3
 EnvironmentFile=/game/urt30t/.env
 WorkingDirectory=/game/urt30t
-ExecStart=.venv311/bin/python -m urt30t
+ExecStart=/game/urt30t/.venv311/bin/python -m urt30t
 ExecReload=/bin/kill -s HUP $MAINPID
 ExecStop=/bin/kill -s TERM $MAINPID
