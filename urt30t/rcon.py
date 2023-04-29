@@ -81,7 +81,7 @@ class _Protocol(asyncio.DatagramProtocol):
         self._recv_q.put_nowait(data)
 
     def error_received(self, exc: Exception) -> None:
-        logger.error("%r", exc)
+        self.connection_lost(exc)
 
     def pause_writing(self) -> None:
         logger.warning("pausing writes")
@@ -124,12 +124,16 @@ class Game(TypedDict):
 class RconClient:
     def __init__(
         self,
+        host: str,
+        port: int,
         password: bytes,
         transport: DatagramTransport,
         recv_q: asyncio.Queue[bytes],
         recv_timeout: float,
         buffer_free: asyncio.Event,
     ) -> None:
+        self._host = host
+        self._port = port
         self._password = password
         self._transport = transport
         self._recv_q = recv_q
@@ -253,6 +257,11 @@ class RconClient:
             cmd = cmd.encode(encoding=_ENCODING)
         cmd = b'%srcon "%s" %s\n' % (_CMD_PREFIX, self._password, cmd)
         async with self._lock:
+            # handle reconnects on case of errors or lost connections
+            if self._transport.is_closing():
+                self._transport = await _new_transport(
+                    self._host, self._port, self._recv_q, self._buffer_free
+                )
             self._transport.sendto(cmd)
             await self._buffer_free.wait()
             data = await self._recv()
@@ -355,20 +364,25 @@ def _parse_players_command(data: str) -> Game:
 async def create_client(
     host: str, port: int, password: str, recv_timeout: float = 0.2
 ) -> RconClient:
-    loop = asyncio.get_running_loop()
-
     recv_q = asyncio.Queue[bytes]()
     buffer_free = asyncio.Event()
-
-    transport: asyncio.DatagramTransport
-    transport, proto = await loop.create_datagram_endpoint(
-        lambda: _Protocol(recv_q, buffer_free), remote_addr=(host, port)
-    )
-
+    transport = await _new_transport(host, port, recv_q, buffer_free)
     return RconClient(
+        host,
+        port,
         password.encode(encoding=_ENCODING),
         transport,
         recv_q,
         recv_timeout,
         buffer_free,
     )
+
+
+async def _new_transport(
+    host: str, port: int, recv_q: asyncio.Queue[bytes], buffer_free: asyncio.Event
+) -> asyncio.DatagramTransport:
+    loop = asyncio.get_running_loop()
+    transport, _ = await loop.create_datagram_endpoint(
+        lambda: _Protocol(recv_q, buffer_free), remote_addr=(host, port)
+    )
+    return transport
