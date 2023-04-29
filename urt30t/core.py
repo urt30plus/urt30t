@@ -269,7 +269,6 @@ class Bot:
             channel_name=channel_name,
             embed_title=embed_title,
         )
-        logger.info("Starting Discord GameInfo Updater")
         logger.info(
             "%r - delay=[%s], delay_no_updates=[%s], timeout=[%s]",
             updater,
@@ -308,7 +307,6 @@ class Bot:
             embed_title=embed_title,
             mapcycle_file=mapcycle_file,
         )
-        logger.info("Starting Discord Mapcycle Updater")
         logger.info(
             "%r - delay=[%s], timeout=[%s], file=[%s]",
             updater,
