@@ -1,10 +1,12 @@
+import asyncio
 import logging
 import time
 
 import discord
 
+from .. import rcon
 from ..models import Game, Player
-from . import EmbedUpdater
+from . import DiscordAPIClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
 
@@ -14,19 +16,52 @@ logger = logging.getLogger(__name__)
 EMBED_NO_PLAYERS = "```\n" + " " * (24 + 18) + "\n```"
 
 
-async def update(updater: EmbedUpdater, game: Game) -> None:
-    logger.info("Game Info Updater Start")
-    message = await updater.fetch_embed_message()
-    embed = create_server_embed(updater, game)
-    if message:
-        if should_update_embed(message, embed):
-            logger.info("Updating existing message: %s", message.id)
-            await message.edit(embed=embed)
+class GameInfoUpdater(DiscordEmbedUpdater):
+    def __init__(
+        self,
+        api_client: DiscordAPIClient,
+        rcon_client: rcon.RconClient,
+        channel_name: str,
+        embed_title: str,
+    ) -> None:
+        super().__init__(api_client, rcon_client, channel_name, embed_title)
+        self._last_game: Game | None = None
+
+    async def update(self) -> bool:
+        message, game = await asyncio.gather(
+            self.fetch_embed_message(),
+            self.fetch_game_info(),
+        )
+
+        if same_map_and_specs(game, self._last_game):
+            result = False
         else:
-            logger.info("Existing message embed is up to date")
-    else:
-        logger.info("Sending new message")
-        await updater.new_message(embed=embed)
+            embed = create_server_embed(game, self.embed_title)
+            result = await self._update_or_create_if_needed(message, embed)
+
+        self._last_game = game
+        return result
+
+    async def fetch_game_info(self) -> Game:
+        game = await self.rcon_client.players()
+        return Game.from_dict(game)
+
+    def should_update_embed(
+        self, message: discord.Message, embed: discord.Embed
+    ) -> bool:
+        current_embed = message.embeds[0]
+        # embed fields indicate that either players are connected or there was an
+        # error getting server info, in either case we want to continue updating
+        if current_embed.fields or embed.fields:
+            return True
+        curr_txt = current_embed.description if current_embed.description else ""
+        new_txt = embed.description if embed.description else ""
+        # ignore the last line that has the updated timestamp embedded, at this
+        # point the messages are `no players online` and we only want to update
+        # if the map has changed
+        return (
+            new_txt.rsplit("\n", maxsplit=1)[0] != curr_txt.rsplit("\n", maxsplit=1)[0]
+        )
 
 
 def format_player(p: Player) -> str:
@@ -78,8 +113,8 @@ def add_mapinfo_field(embed: discord.Embed, game: Game) -> None:
     embed.add_field(name="Game Time / Player Counts", value=info, inline=False)
 
 
-def create_server_embed(updater: EmbedUpdater, game: Game | None) -> discord.Embed:
-    embed = discord.Embed(title=updater.embed_title)
+def create_server_embed(game: Game | None, title: str) -> discord.Embed:
+    embed = discord.Embed(title=title)
 
     last_updated = f"updated <t:{int(time.time())}:R>"
     connect_info = "`/connect game.urt-30plus.org`"  # TODO: port number
@@ -107,20 +142,6 @@ def create_server_embed(updater: EmbedUpdater, game: Game | None) -> discord.Emb
         embed.add_field(name=connect_info, value=last_updated, inline=False)
 
     return embed
-
-
-def should_update_embed(message: discord.Message, embed: discord.Embed) -> bool:
-    current_embed = message.embeds[0]
-    # embed fields indicate that either players are connected or there was an
-    # error getting server info, in either case we want to continue updating
-    if current_embed.fields or embed.fields:
-        return True
-    curr_txt = current_embed.description if current_embed.description else ""
-    new_txt = embed.description if embed.description else ""
-    # ignore the last line that has the updated timestamp embedded, at this
-    # point the messages are `no players online` and we only want to update
-    # if the map has changed
-    return new_txt.rsplit("\n", maxsplit=1)[0] != curr_txt.rsplit("\n", maxsplit=1)[0]
 
 
 def same_map_and_specs(s1: Game | None, s2: Game | None) -> bool:

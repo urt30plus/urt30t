@@ -90,8 +90,8 @@ class DiscordSettings(SharedSettings, env_prefix="URT30T_DISCORD_"):
 
     gameinfo_updates_enabled: bool = True
     gameinfo_embed_title: str = Required
-    gameinfo_update_delay: float = 60.0
-    gameinfo_update_delay_players: float = 5.0
+    gameinfo_update_delay: float = 5.0
+    gameinfo_update_delay_no_updates: float = 60.0
     gameinfo_update_timeout: float = 5.0
 
     mapcycle_updates_enabled: bool = True
@@ -118,7 +118,7 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     discord: DiscordSettings | None = None
 
     @validator("discord", always=True)
-    def _discord_settings(cls, v) -> DiscordSettings | None:
+    def _discord_settings(cls, v: DiscordSettings | None) -> DiscordSettings | None:
         if v is None:
             try:
                 v = DiscordSettings()

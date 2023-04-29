@@ -6,54 +6,62 @@ from pathlib import Path
 import aiofiles
 import discord
 
+from .. import rcon
 from ..models import GameType
-from . import EmbedUpdater
+from . import DiscordAPIClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
 
 MapCycle = dict[str, dict[str, str]]
 
 
-async def update(updater: EmbedUpdater, mapcycle_file: Path) -> None:
-    message, embed = await asyncio.gather(
-        updater.fetch_embed_message(),
-        _create_embed(mapcycle_file, updater.embed_title),
-    )
-    if message:
-        if _should_update_embed(message, embed):
-            logger.info("Updating existing message: %s", message.id)
-            await message.edit(embed=embed)
-        else:
-            logger.info("Existing message embed is up to date")
-    else:
-        logger.info("Sending new message")
-        await updater.new_message(embed=embed)
+class MapCycleUpdater(DiscordEmbedUpdater):
+    def __init__(
+        self,
+        api_client: DiscordAPIClient,
+        rcon_client: rcon.RconClient,
+        channel_name: str,
+        embed_title: str,
+        mapcycle_file: Path,
+    ) -> None:
+        super().__init__(api_client, rcon_client, channel_name, embed_title)
+        self.mapcycle_file = mapcycle_file
+
+    async def update(self) -> bool:
+        # TODO: maybe compare mapcycle_file last mod time against
+        #  the ms/embed last modify time and store those in the class.
+        message, embed = await asyncio.gather(
+            self.fetch_embed_message(),
+            create_embed(self.mapcycle_file, self.embed_title),
+        )
+        return await self._update_or_create_if_needed(message, embed)
+
+    def should_update_embed(
+        self, message: discord.Message, embed: discord.Embed
+    ) -> bool:
+        curr_embed = message.embeds[0]
+        curr_txt = curr_embed.description if curr_embed.description else ""
+        new_txt = embed.description if embed.description else ""
+        return curr_txt.strip() != new_txt.strip()
 
 
-async def _create_embed(mapcycle_file: Path, embed_title: str) -> discord.Embed:
-    logger.info("Creating map cycle embed from: %s", mapcycle_file)
+async def create_embed(mapcycle_file: Path, embed_title: str) -> discord.Embed:
+    logger.debug("Creating map cycle embed from: %s", mapcycle_file)
     try:
-        cycle = await _parse_mapcycle(mapcycle_file)
+        cycle = await parse_mapcycle(mapcycle_file)
     except Exception:
         logger.exception("Failed to parse map cycle file: %s", mapcycle_file)
         cycle = {}
-    return _create_mapcycle_embed(cycle, embed_title)
+    return create_mapcycle_embed(cycle, embed_title)
 
 
-def _should_update_embed(message: discord.Message, embed: discord.Embed) -> bool:
-    curr_embed = message.embeds[0]
-    curr_txt = curr_embed.description if curr_embed.description else ""
-    new_txt = embed.description if embed.description else ""
-    return curr_txt.strip() != new_txt.strip()
-
-
-async def _parse_mapcycle(mapcycle_file: Path) -> MapCycle:
+async def parse_mapcycle(mapcycle_file: Path) -> MapCycle:
     async with aiofiles.open(mapcycle_file, mode="r", encoding="utf-8") as f:
         lines = await f.readlines()
-    return _parse_mapcycle_lines(lines)
+    return parse_mapcycle_lines(lines)
 
 
-def _parse_mapcycle_lines(lines: list[str]) -> MapCycle:
+def parse_mapcycle_lines(lines: list[str]) -> MapCycle:
     result: MapCycle = {}
     map_name = ""
     map_config = None
@@ -74,11 +82,11 @@ def _parse_mapcycle_lines(lines: list[str]) -> MapCycle:
     return result
 
 
-def _create_mapcycle_embed(cycle: MapCycle, embed_title: str) -> discord.Embed:
+def create_mapcycle_embed(cycle: MapCycle, embed_title: str) -> discord.Embed:
     if cycle:
         descr = (
             "```\n"
-            + "\n".join([f"{k:25} {_map_mode(v)}" for k, v in cycle.items()])
+            + "\n".join([f"{k:25} {map_mode(v)}" for k, v in cycle.items()])
             + "```"
         )
         color = discord.Colour.blue()
@@ -99,7 +107,7 @@ def _create_mapcycle_embed(cycle: MapCycle, embed_title: str) -> discord.Embed:
     return embed
 
 
-def _map_mode(map_opts: dict[str, str]) -> str:
+def map_mode(map_opts: dict[str, str]) -> str:
     if map_opts.get("mod_gungame", "0") == "1":
         result = GameType.GUNGAME.name + " d3mod"
     elif map_opts.get("mod_ctf", "0") == "1":

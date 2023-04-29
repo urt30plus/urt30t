@@ -169,7 +169,7 @@ class RconClient:
         return Cvar(name=name, value=m["value"], default=default)
 
     async def cvarlist(self, prefix: str) -> dict[str, str]:
-        result = {}
+        result: dict[str, str] = {}
         if not (data := await self._execute(f"cvarlist {prefix}", multi_recv=True)):
             return result
         items = data.decode(encoding=_ENCODING).splitlines()
@@ -193,8 +193,8 @@ class RconClient:
     async def mapcycle_file(self) -> Path | None:
         if fs_data := await self.cvarlist("fs_"):
             base_path = Path(fs_data["fs_homepath"]) / fs_data["fs_game"]
-            map_file = await self.cvar("g_mapcycle")
-            return base_path / map_file.value
+            if map_file := await self.cvar("g_mapcycle"):
+                return base_path / map_file.value
         return None
 
     async def maps(self) -> list[str]:
