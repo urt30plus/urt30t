@@ -4,6 +4,11 @@ Main entrypoint for the bot.
 import asyncio
 import contextlib
 
+try:
+    import uvloop
+except ImportError:
+    uvloop = None
+
 
 async def async_main() -> None:
     import urt30t.core
@@ -12,13 +17,11 @@ async def async_main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        import uvloop
-
+    if uvloop is not None:
         with contextlib.suppress(KeyboardInterrupt), asyncio.Runner(
             loop_factory=uvloop.new_event_loop
         ) as runner:
             runner.run(async_main())
-    except ImportError:
+    else:
         with contextlib.suppress(KeyboardInterrupt):
             asyncio.run(async_main())

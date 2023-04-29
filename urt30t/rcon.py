@@ -70,7 +70,7 @@ class _Protocol(asyncio.DatagramProtocol):
         if exc is None:
             logger.info("Connection closed")
         else:
-            logger.exception(exc)
+            logger.error("Connection closed: %r", exc)
         if size := self._recv_q.qsize():
             logger.warning("Receive queue has pending items: %s", size)
         if self._transport:
@@ -81,7 +81,7 @@ class _Protocol(asyncio.DatagramProtocol):
         self._recv_q.put_nowait(data)
 
     def error_received(self, exc: Exception) -> None:
-        logger.exception(exc)
+        logger.error("%r", exc)
 
     def pause_writing(self) -> None:
         logger.warning("pausing writes")
