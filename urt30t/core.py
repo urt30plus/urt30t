@@ -277,10 +277,13 @@ class Bot:
             timeout,
         )
         while True:
-            if await updater.update():
-                await asyncio.sleep(delay)
-            else:
-                await asyncio.sleep(delay_no_updates)
+            try:
+                was_updated = await updater.update()
+            except Exception:
+                logger.exception("GameInfo update failed")
+                was_updated = False
+
+            await asyncio.sleep(delay if was_updated else delay_no_updates)
 
     async def _discord_update_mapcycle(
         self, api_client: discord30.DiscordClient, config: settings.DiscordSettings
@@ -315,7 +318,10 @@ class Bot:
             mapcycle_file,
         )
         while True:
-            await updater.update()
+            try:
+                await updater.update()
+            except Exception:
+                logger.exception("Mapcycle update failed")
             await asyncio.sleep(delay)
 
     def __repr__(self) -> str:
