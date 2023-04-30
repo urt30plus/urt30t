@@ -227,8 +227,13 @@ class Plugin(BotPlugin):
         if not (player := self.bot.player(event.slot)):
             logger.warning("no player found at: %s", event.slot)
             return
-        message_type = MessageType(event.text[:1])
-        name, _, data = event.text[1:].partition(" ")
+        cmd_and_data = event.text.lstrip(self.command_prefix)
+        prefix_count = len(event.text) - len(cmd_and_data)
+        if not 1 <= prefix_count <= 3:
+            logger.warning("too many command prefixes, ignoring: %s", event.text)
+            return
+        message_type = MessageType(len(event.text) - len(cmd_and_data))
+        name, _, data = cmd_and_data.partition(" ")
         cmd = BotCommand(
             plugin=self,
             message_type=message_type,
