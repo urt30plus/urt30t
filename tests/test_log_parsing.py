@@ -29,7 +29,7 @@ def test_log_bomb_holder():
 def test_log_bomb_explode():
     e = parse_log_line("  3:02 Pop!")
     assert e.type is events.Pop
-    assert e.data == ""
+    assert not e.data
 
 
 def test_log_client_spawn():
@@ -65,7 +65,7 @@ def test_log_say_team():
 def test_log_warmup():
     e = parse_log_line("  0:00 Warmup:")
     assert e.type is events.Warmup
-    assert e.data == ""
+    assert not e.data
 
 
 def test_log_teams_scores():
