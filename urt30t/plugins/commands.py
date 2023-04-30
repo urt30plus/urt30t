@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class Plugin(BotPlugin):
     def __init__(self, bot: Bot) -> None:
         super().__init__(bot)
-        self.command_prefixes = tuple(x.value for x in MessageType)
+        self.command_prefix = bot.command_prefix
         self.commands_by_group: dict[str, Group] = {}
         self.team_map = {
             "red": Team.RED,
@@ -221,7 +221,7 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_say(self, event: events.Say) -> None:
-        if not event.text.startswith(self.command_prefixes):
+        if not event.text.startswith(self.command_prefix):
             return
         logger.info(event)
         if not (player := self.bot.player(event.slot)):

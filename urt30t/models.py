@@ -24,9 +24,9 @@ class Group(enum.IntEnum):
 
 
 class MessageType(enum.Enum):
-    BIG = "&"
-    LOUD = "@"
-    PRIVATE = "!"
+    PRIVATE = 1
+    LOUD = 2
+    BIG = 3
 
 
 class Team(enum.Enum):
@@ -311,6 +311,11 @@ class Bot(Protocol):
     @property
     @abc.abstractmethod
     def rcon(self) -> rcon.RconClient:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def command_prefix(self) -> str:
         ...
 
     @property

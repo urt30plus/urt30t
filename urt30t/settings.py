@@ -114,6 +114,7 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
     db_url: str = Required
     event_queue_max_size: int = 100
+    command_prefix: str = "$"
     plugins: list[str] = []
     log_read_delay: float = 0.250
     log_check_truncated: bool = False

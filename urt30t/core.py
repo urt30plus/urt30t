@@ -87,6 +87,10 @@ class Bot:
         return self._rcon
 
     @property
+    def command_prefix(self) -> str:
+        return self._conf.command_prefix
+
+    @property
     def message_prefix(self) -> str:
         return self._conf.message_prefix
 
