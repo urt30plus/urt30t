@@ -7,6 +7,11 @@ strict = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
+module = ["urt30t.__main__"]
+warn_unreachable = false
+disable_error_code = ["assignment"]
+
+[[tool.mypy.overrides]]
 module = ["discord", "uvloop"]
 ignore_missing_imports = true
 
