@@ -132,8 +132,8 @@ class RconClient:
         recv_timeout: float,
         buffer_free: asyncio.Event,
     ) -> None:
-        self._host = host
-        self._port = port
+        self.host = host
+        self.port = port
         self._password = password
         self._transport = transport
         self._recv_q = recv_q
@@ -260,7 +260,7 @@ class RconClient:
             # handle reconnects on case of errors or lost connections
             if self._transport.is_closing():
                 self._transport = await _new_transport(
-                    self._host, self._port, self._recv_q, self._buffer_free
+                    self.host, self.port, self._recv_q, self._buffer_free
                 )
             self._transport.sendto(cmd)
             await self._buffer_free.wait()

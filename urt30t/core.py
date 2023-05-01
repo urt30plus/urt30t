@@ -272,6 +272,7 @@ class Bot:
             rcon_client=self.rcon,
             channel_name=channel_name,
             embed_title=embed_title,
+            game_host=self._conf.game_host,
         )
         logger.info(
             "%r - delay=[%s], delay_no_updates=[%s], timeout=[%s]",

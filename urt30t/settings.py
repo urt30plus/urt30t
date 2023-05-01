@@ -119,6 +119,7 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     log_read_delay: float = 0.250
     log_check_truncated: bool = False
     log_replay_from_start: bool = False
+    game_host: str | None = None
 
     discord: DiscordSettings | None = None
 

@@ -23,9 +23,11 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         rcon_client: rcon.RconClient,
         channel_name: str,
         embed_title: str,
+        game_host: str | None = None,
     ) -> None:
         super().__init__(api_client, rcon_client, channel_name, embed_title)
         self._last_game: Game | None = None
+        self._game_host = game_host
 
     async def update(self) -> bool:
         message, game = await asyncio.gather(
@@ -36,7 +38,9 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         if message and same_map_and_specs(game, self._last_game):
             result = False
         else:
-            embed = create_server_embed(game, self.embed_title)
+            embed = create_server_embed(
+                game, self.embed_title, self._game_host, self.rcon_client.port
+            )
             result = await self._update_or_create_if_needed(message, embed)
 
         self._last_game = game
@@ -113,11 +117,21 @@ def add_mapinfo_field(embed: discord.Embed, game: Game) -> None:
     embed.add_field(name="Game Time / Player Counts", value=info, inline=False)
 
 
-def create_server_embed(game: Game | None, title: str) -> discord.Embed:
+def create_server_embed(
+    game: Game | None,
+    title: str,
+    game_host: str | None = None,
+    game_port: int | None = None,
+) -> discord.Embed:
     embed = discord.Embed(title=title)
 
     last_updated = f"updated <t:{int(time.time())}:R>"
-    connect_info = "`/connect game.urt-30plus.org`"  # TODO: port number
+    if game_host:
+        if not game_port:
+            game_port = 27960
+        connect_info = f"`/connect {game_host}:{game_port}`"
+    else:
+        connect_info = ""
 
     if game:
         game_type = "Gun Game/FFA" if game.type is GameType.FFA else game.type.name
