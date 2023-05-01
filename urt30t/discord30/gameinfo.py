@@ -5,7 +5,7 @@ import time
 import discord
 
 from .. import rcon
-from ..models import Game, Player
+from ..models import Game, GameType, Player
 from . import DiscordClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
@@ -120,10 +120,8 @@ def create_server_embed(game: Game | None, title: str) -> discord.Embed:
     connect_info = "`/connect game.urt-30plus.org`"  # TODO: port number
 
     if game:
-        if game_type := game.type:
-            description = f"{game.map_name} ({game_type})"
-        else:
-            description = game.map_name
+        game_type = "Gun Game/FFA" if game.type is GameType.FFA else game.type.name
+        description = f"{game.map_name} ({game_type})"
         embed.description = f"```\n{description}\n```"
         if game.players:
             embed.colour = discord.Colour.green()
