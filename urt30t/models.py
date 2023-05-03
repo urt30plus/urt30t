@@ -14,6 +14,15 @@ class BotError(Exception):
     pass
 
 
+class PlayerNotFoundError(BotError):
+    pass
+
+
+class TooManyPlayersFoundError(BotError):
+    def __init__(self, players: list["Player"]) -> None:
+        self.players = players
+
+
 class Group(enum.IntEnum):
     UNKNOWN = -1
     GUEST = 1
@@ -356,6 +365,13 @@ class BotPlugin:
 
     async def plugin_unload(self) -> None:
         pass
+
+    def get_player(self, s: str) -> Player:
+        if players := self.bot.find_player(s):
+            if len(players) == 1:
+                return players[0]
+            raise TooManyPlayersFoundError(players)
+        raise PlayerNotFoundError(s)
 
 
 @dataclasses.dataclass

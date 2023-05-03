@@ -14,6 +14,8 @@ from urt30t import (
     events,
 )
 
+from ..models import PlayerNotFoundError, TooManyPlayersFoundError
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,7 +58,26 @@ class Plugin(BotPlugin):
 
     @bot_command(Group.MODERATOR)
     async def ci(self, cmd: BotCommand) -> None:
-        raise NotImplementedError
+        """
+        <player> - kick a client that has an interrupted connection
+        """
+        # TODO: have a command way to express required command args and show
+        #   help if not present. Maybe catch AssertionError in on_say??
+        assert len(cmd.args) >= 1
+        player = self.get_player(cmd.args[0])
+        gameinfo = await self.bot.rcon.players()
+        for slot in gameinfo.get("Slots", []):
+            if slot["slot"] == player.slot:
+                try:
+                    ping = int(slot["ping"])
+                except ValueError:
+                    ping = 999
+                if ping >= 500:
+                    # TODO: fix
+                    await cmd.message("yep, ci")
+                    return
+
+        await cmd.message("not ci")
 
     @bot_command(Group.ADMIN)
     async def cyclemap(self, _: BotCommand) -> None:
@@ -241,7 +262,13 @@ class Plugin(BotPlugin):
             args=[x.strip() for x in data.split()],
         )
         if cmd_handler := self._find_command_handler(name, player.group):
-            await cmd_handler(cmd)
+            try:
+                await cmd_handler(cmd)
+            except PlayerNotFoundError as exc:
+                await cmd.message(f"Player not found: {exc}", MessageType.PRIVATE)
+            except TooManyPlayersFoundError as exc:
+                choices = ", ".join(f"{p.name}" for p in exc.players)
+                await cmd.message(f"Which player? {choices}", MessageType.PRIVATE)
         else:
             logger.warning("no command config found: %s", event)
             if candidates := self._find_command_sounds_like(name, player.group):
