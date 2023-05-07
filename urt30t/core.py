@@ -16,6 +16,7 @@ import aiofiles.os
 
 from . import discord30, events, rcon, settings, tasks, version
 from .models import (
+    BotCommand,
     BotCommandConfig,
     BotError,
     BotPlugin,
@@ -338,11 +339,33 @@ def bot_command(
 ) -> Callable[[_T], _T]:
     def inner(f: _T) -> _T:
         name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
+        # TODO: better exception messages
+        sig = inspect.signature(f)  # type: ignore[arg-type]
+        if len(sig.parameters) < 2:
+            raise TypeError(sig.parameters)
+        args_req = args_opt = 0
+        for i, p in enumerate(sig.parameters.values()):
+            if i == 0:
+                continue
+            if i == 1:
+                if p.annotation != BotCommand:
+                    raise TypeError(p.annotation)
+                continue
+            if p.kind not in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY):
+                raise TypeError(p.kind)
+            # TODO: if annotated make sure it's a str??
+            # TODO: check return annotation?
+            if p.default is p.empty:
+                args_req += 1
+            else:
+                args_opt += 1
         f.bot_command_config = BotCommandConfig(  # type: ignore[attr-defined]
             handler=None,  # type: ignore
             name=name.lower(),
             level=level,
             alias=alias,
+            args_required=args_req,
+            args_optional=args_opt,
         )
         return f
 

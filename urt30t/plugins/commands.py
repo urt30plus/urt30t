@@ -5,7 +5,6 @@ from urt30t import (
     Bot,
     BotCommand,
     BotPlugin,
-    CommandHandler,
     Group,
     MessageType,
     Team,
@@ -14,7 +13,7 @@ from urt30t import (
     events,
 )
 
-from ..models import PlayerNotFoundError, TooManyPlayersFoundError
+from ..models import BotCommandConfig, PlayerNotFoundError, TooManyPlayersFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -45,26 +44,26 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def ban(self, cmd: BotCommand) -> None:
+    async def ban(self, cmd: BotCommand, pid: str, reason: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def bigtext(self, cmd: BotCommand) -> None:
+    async def bigtext(self, cmd: BotCommand, message: str) -> None:
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def caplimit(self, cmd: BotCommand) -> None:
+    async def caplimit(self, cmd: BotCommand, limit: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(Group.MODERATOR)
-    async def ci(self, cmd: BotCommand) -> None:
+    async def ci(self, cmd: BotCommand, pid: str) -> None:
         """
         <player> - kick a client that has an interrupted connection
         """
         # TODO: have a command way to express required command args and show
         #   help if not present. Maybe catch AssertionError in on_say??
         assert len(cmd.args) >= 1
-        player = self.get_player(cmd.args[0])
+        player = self.get_player(pid)
         gameinfo = await self.bot.rcon.players()
         for slot in gameinfo.get("Slots", []):
             if slot["slot"] == player.slot:
@@ -84,15 +83,11 @@ class Plugin(BotPlugin):
         await self.bot.rcon.cycle_map()
 
     @bot_command(Group.MODERATOR)
-    async def force(self, cmd: BotCommand) -> None:
+    async def force(self, cmd: BotCommand, pid: str, team: str) -> None:
         """
         <player> <[r]ed/[b]lue/[s]pec> - Move a player to the specified team.
         """
-        if len(cmd.args) != 2:
-            await cmd.message(f"Invalid arguments: {cmd.args}")
-            return
-
-        if players := self.bot.find_player(cmd.args[0]):
+        if players := self.bot.find_player(pid):
             if len(players) == 1:
                 player = players[0]
             else:
@@ -100,10 +95,10 @@ class Plugin(BotPlugin):
                 await cmd.message(f"Which client: {choose}")
                 return
         else:
-            await cmd.message(f"No players found: {cmd.args[0]}")
+            await cmd.message(f"No players found: {pid}")
             return
 
-        if not (target := self.team_map.get(cmd.args[1])):
+        if not (target := self.team_map.get(team)):
             choices = ", ".join(self.team_map)
             await cmd.message(f"Invalid team name [target]: use {choices}")
             return
@@ -115,26 +110,26 @@ class Plugin(BotPlugin):
         await self.bot.rcon.force(player.slot, target.name)
 
     @bot_command(Group.ADMIN)
-    async def fraglimit(self, cmd: BotCommand) -> None:
+    async def fraglimit(self, cmd: BotCommand, limit: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.GUEST)
-    async def help(self, cmd: BotCommand) -> None:  # noqa: A003
+    async def cmd_help(self, cmd: BotCommand, name: str | None = None) -> None:
         """Provides a list of commands available."""
         # TODO: get list of commands available to the player that issued command
         #   or make sure the user has access to the target command
-        if cmd.args:
-            if cmd_handler := self._find_command_handler(cmd.args[0], cmd.player.group):
-                message = f'"{cmd_handler.__doc__}"'
+        if name:
+            if cmd_config := self._find_command_config(name, cmd.player.group):
+                message = f'"{cmd_config.handler.__doc__}"'
             else:
-                message = f"command [{cmd.args[0]}] not found"
+                message = f"command [{name}] not found"
         else:
             message = f"there are {len(self.bot.commands)} commands total"
 
         await cmd.message(message)
 
     @bot_command(Group.MODERATOR)
-    async def kick(self, cmd: BotCommand) -> None:
+    async def kick(self, cmd: BotCommand, pid: str, reason: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(Group.MODERATOR)
@@ -142,9 +137,9 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.GUEST, alias="lt")
-    async def leveltest(self, cmd: BotCommand) -> None:
+    async def leveltest(self, cmd: BotCommand, pid: str) -> None:
         # TODO: handle cases where data is another user to test
-        logger.debug(cmd.args)
+        logger.debug(pid)
         await cmd.message(f"{cmd.player.group.name}")
 
     @bot_command(level=Group.ADMIN)
@@ -165,15 +160,15 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def moon(self, cmd: BotCommand) -> None:
+    async def moon(self, cmd: BotCommand, toggle: str) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.MODERATOR)
-    async def mute(self, cmd: BotCommand) -> None:
+    async def mute(self, cmd: BotCommand, pid: str, reason: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def nuke(self, cmd: BotCommand) -> None:
+    async def nuke(self, cmd: BotCommand, pid: str) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
@@ -181,7 +176,7 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def putgroup(self, cmd: BotCommand) -> None:
+    async def putgroup(self, cmd: BotCommand, pid: str, group_name: str) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
@@ -190,7 +185,7 @@ class Plugin(BotPlugin):
         await self.bot.rcon.reload()
 
     @bot_command(level=Group.ADMIN)
-    async def setnextmap(self, cmd: BotCommand) -> None:
+    async def setnextmap(self, cmd: BotCommand, map_name: str) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
@@ -203,11 +198,11 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def slap(self, cmd: BotCommand) -> None:
+    async def slap(self, cmd: BotCommand, pid: str) -> None:
         raise NotImplementedError
 
     @bot_command(Group.MODERATOR)
-    async def swap(self, cmd: BotCommand) -> None:
+    async def swap(self, cmd: BotCommand, pid1: str, pid2: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
@@ -220,7 +215,9 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def tempban(self, cmd: BotCommand) -> None:
+    async def tempban(
+        self, cmd: BotCommand, pid: str, reason: str | None = None
+    ) -> None:
         raise NotImplementedError
 
     @bot_command(Group.GUEST)
@@ -233,7 +230,7 @@ class Plugin(BotPlugin):
         await cmd.message(msg)
 
     @bot_command(Group.ADMIN)
-    async def timelimit(self, cmd: BotCommand) -> None:
+    async def timelimit(self, cmd: BotCommand, limit: str | None = None) -> None:
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
@@ -255,15 +252,26 @@ class Plugin(BotPlugin):
             return
         message_type = MessageType(len(event.text) - len(cmd_and_data))
         name, _, data = cmd_and_data.partition(" ")
+        cmd_args = [x.strip() for x in data.split()]
         cmd = BotCommand(
             plugin=self,
+            name=name,
             message_type=message_type,
             player=player,
-            args=[x.strip() for x in data.split()],
+            args=cmd_args,
         )
-        if cmd_handler := self._find_command_handler(name, player.group):
+        if cmd_config := self._find_command_config(name, player.group):
+            if not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
+                msg = (
+                    f"invalid arguments, expected between {cmd_config.min_args} "
+                    f"and {cmd_config.max_args} but got {len(cmd_args)}"
+                )
+                logger.error(msg)
+                msg += f" see !help {name}"
+                await cmd.message(msg, MessageType.PRIVATE)
+                return
             try:
-                await cmd_handler(cmd)
+                await cmd_config.handler(cmd, *cmd_args)
             except PlayerNotFoundError as exc:
                 await cmd.message(f"Player not found: {exc}", MessageType.PRIVATE)
             except TooManyPlayersFoundError as exc:
@@ -286,16 +294,16 @@ class Plugin(BotPlugin):
         if event.slot == event.target:
             await self.on_say(event)
 
-    def _find_command_handler(
+    def _find_command_config(
         self, cmd_name: str, group: Group
-    ) -> CommandHandler | None:
+    ) -> BotCommandConfig | None:
         # TODO: verify group >= cmd.level
         assert group
         if cmd_config := self.bot.commands.get(cmd_name):
-            return cmd_config.handler
+            return cmd_config
         for c in self.bot.commands.values():
             if c.alias == cmd_name:
-                return c.handler
+                return c
         return None
 
     def _find_command_sounds_like(self, cmd_name: str, group: Group) -> set[str]:

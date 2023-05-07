@@ -312,6 +312,16 @@ class BotCommandConfig(NamedTuple):
     name: str
     level: Group = Group.USER
     alias: str | None = None
+    args_required: int = 0
+    args_optional: int = 0
+
+    @property
+    def min_args(self) -> int:
+        return self.args_required
+
+    @property
+    def max_args(self) -> int:
+        return self.args_required + self.args_optional
 
 
 class Bot(Protocol):
@@ -377,6 +387,7 @@ class BotPlugin:
 @dataclasses.dataclass
 class BotCommand:
     plugin: BotPlugin
+    name: str
     message_type: MessageType
     player: Player
     args: list[str] = dataclasses.field(default_factory=list)
