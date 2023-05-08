@@ -3,11 +3,7 @@ Main entrypoint for the bot.
 """
 import asyncio
 import contextlib
-
-try:
-    import uvloop
-except ImportError:
-    uvloop = None
+import importlib
 
 
 async def async_main() -> None:
@@ -17,11 +13,13 @@ async def async_main() -> None:
 
 
 if __name__ == "__main__":
-    if uvloop is not None:
+    try:
+        uvloop = importlib.import_module("uvloop")
+    except ModuleNotFoundError:
+        with contextlib.suppress(KeyboardInterrupt):
+            asyncio.run(async_main())
+    else:
         with contextlib.suppress(KeyboardInterrupt), asyncio.Runner(
             loop_factory=uvloop.new_event_loop
         ) as runner:
             runner.run(async_main())
-    else:
-        with contextlib.suppress(KeyboardInterrupt):
-            asyncio.run(async_main())
