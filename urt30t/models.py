@@ -402,9 +402,9 @@ class BotCommand:
         if message_type is MessageType.PRIVATE:
             prefix += "^8[pm]^7 "
             await self.plugin.bot.rcon.private_message(
-                self.player.slot, prefix + message
+                slot=self.player.slot, message=message, prefix=prefix
             )
         elif message_type is MessageType.LOUD:
-            await self.plugin.bot.rcon.message(prefix + message)
+            await self.plugin.bot.rcon.message(message=message, prefix=prefix)
         else:
-            await self.plugin.bot.rcon.bigtext(prefix + message)
+            await self.plugin.bot.rcon.bigtext(message=message, prefix=prefix)

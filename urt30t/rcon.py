@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import textwrap
 from asyncio.transports import DatagramTransport
 from pathlib import Path
 from typing import Any, NamedTuple, TypedDict, cast
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 _CMD_PREFIX = b"\xff" * 4
 _REPLY_PREFIX = _CMD_PREFIX + b"print\n"
 _ENCODING = "latin-1"
+_MAX_MESSAGE_LENGTH = 80
 
 _CVAR_PATTERNS = (
     # "sv_maxclients" is:"16^7" default:"8^7"
@@ -141,11 +143,11 @@ class RconClient:
         self._buffer_free = buffer_free
         self._lock = asyncio.Lock()
 
-    async def bigtext(self, message: str) -> None:
-        await self._execute(f'bigtext "{message}"')
+    async def bigtext(self, message: str, prefix: str = "") -> None:
+        await self.message(message, prefix=prefix, kind="bigtext")
 
-    async def broadcast(self, message: str) -> None:
-        await self._execute(f'"{message}"')
+    async def broadcast(self, message: str, prefix: str = "") -> None:
+        await self.message(message, prefix=prefix, kind="")
 
     def close(self) -> None:
         self._transport.close()
@@ -217,8 +219,13 @@ class RconClient:
             return []
         return [x.removeprefix("maps/").removesuffix(".bsp") for x in lines[1:-1]]
 
-    async def message(self, message: str) -> None:
-        await self._execute(f'say "{message}"')
+    async def message(self, message: str, prefix: str = "", kind: str = "say") -> None:
+        if kind and not kind.endswith(" "):
+            kind += " "
+        width = _MAX_MESSAGE_LENGTH - len(prefix)
+        for line in _wrap_message(message, width):
+            await self._execute(f'{kind}"{prefix}{line}"')
+            await asyncio.sleep(0.25)
 
     async def players(self) -> Game:
         """
@@ -238,8 +245,8 @@ class RconClient:
             raise LookupError
         return _parse_players_command(data.decode(encoding=_ENCODING))
 
-    async def private_message(self, slot: str, message: str) -> None:
-        await self._execute(f'tell {slot} "{message}"')
+    async def private_message(self, slot: str, message: str, prefix: str = "") -> None:
+        await self.message(message, prefix, f"tell {slot}")
 
     async def reload(self) -> None:
         await self._execute(b"reload")
@@ -292,6 +299,12 @@ class RconClient:
             f"RconClient(host={self._transport.get_extra_info('peername')}, "
             f"recv_timeout={self._recv_timeout})"
         )
+
+
+def _wrap_message(message: str, width: int) -> list[str]:
+    return [
+        x.strip() for line in message.splitlines() for x in textwrap.wrap(line, width)
+    ]
 
 
 def _parse_players_player(data: str) -> Player:
