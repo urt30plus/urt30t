@@ -339,22 +339,44 @@ def bot_command(
 ) -> Callable[[_T], _T]:
     def inner(f: _T) -> _T:
         name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
-        # TODO: better exception messages
         sig = inspect.signature(f)  # type: ignore[arg-type]
+        handler_name = f"{f.__module__}.{f.__qualname__}"  # type: ignore[attr-defined]
         if len(sig.parameters) < 2:
-            raise TypeError(sig.parameters)
+            msg = (
+                f"Command handler [{handler_name}] must have at"
+                " least one parameter. Typically this is named `cmd` and "
+                " annotated as `BotCommand`. For example:\n"
+                "\tdef cmd_foobar(self, cmd: BotCommand) -> None:"
+            )
+            raise TypeError(msg)
         args_req = args_opt = 0
         for i, p in enumerate(sig.parameters.values()):
             if i == 0:
                 continue
             if i == 1:
-                if p.annotation != BotCommand:
-                    raise TypeError(p.annotation)
+                if isinstance(p.annotation, type) and not issubclass(
+                    p.annotation, BotCommand
+                ):
+                    msg = (
+                        f"Command handler [{handler_name}] parameter"
+                        f" is not the correct type. Expected {BotCommand},"
+                        f" got {p.annotation}."
+                    )
+                    raise TypeError(msg)
                 continue
             if p.kind not in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY):
-                raise TypeError(p.kind)
-            # TODO: if annotated make sure it's a str??
-            # TODO: check return annotation?
+                msg = (
+                    f"Command handler [{handler_name}],"
+                    f" *args, **kwargs and keyword only parameters are not supported."
+                    f" got {p.kind}."
+                )
+                raise TypeError(msg)
+            if p.annotation and not issubclass(str, p.annotation):
+                msg = (
+                    f"Command handler [{handler_name}] additional"
+                    f"parameters must be of type `str`, got {p.annotation}."
+                )
+                raise TypeError(msg)
             if p.default is p.empty:
                 args_req += 1
             else:

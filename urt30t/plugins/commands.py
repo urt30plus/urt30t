@@ -261,7 +261,9 @@ class Plugin(BotPlugin):
             args=cmd_args,
         )
         if cmd_config := self._find_command_config(name, player.group):
-            if not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
+            if cmd_config.max_args == 0:
+                cmd_args = []
+            elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
                 msg = (
                     f"invalid arguments, expected between {cmd_config.min_args} "
                     f"and {cmd_config.max_args} but got {len(cmd_args)}"
