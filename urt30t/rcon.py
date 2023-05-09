@@ -224,6 +224,9 @@ class RconClient:
         for line in _wrap_message(message, width):
             await self._execute(f'{kind}"{prefix}{line}"')
 
+    async def nuke(self, slot: str) -> None:
+        await self._execute(f"nuke {slot}")
+
     async def players(self) -> Game:
         """
         Map: ut4_abbey
@@ -253,6 +256,9 @@ class RconClient:
 
     async def shuffle_teams(self) -> None:
         await self._execute(b"shuffleteams")
+
+    async def slap(self, slot: str) -> None:
+        await self._execute(f"slap {slot}")
 
     async def swap_teams(self) -> None:
         await self._execute(b"swapteams")

@@ -68,11 +68,11 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.ADMIN)
-    async def bigtext(self, cmd: BotCommand, message: str) -> None:
+    async def bigtext(self, _: BotCommand, message: str) -> None:
         """
         <message> - prints a bold message in the center of all screens
         """
-        raise NotImplementedError
+        await self.bot.rcon.bigtext(message)
 
     @bot_command(Group.ADMIN)
     async def caplimit(self, cmd: BotCommand, limit: str | None = None) -> None:
@@ -86,9 +86,6 @@ class Plugin(BotPlugin):
         """
         <player> - kick a client that has an interrupted connection
         """
-        # TODO: have a command way to express required command args and show
-        #   help if not present. Maybe catch AssertionError in on_say??
-        assert len(cmd.args) >= 1
         player = self.get_player(pid)
         gameinfo = await self.bot.rcon.players()
         for slot in gameinfo.get("Slots", []):
@@ -223,11 +220,10 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def map_restart(self, cmd: BotCommand) -> None:
+    async def map_restart(self, _: BotCommand) -> None:
         """
         restarts the current map
         """
-        assert cmd.player
         await self.bot.rcon.map_restart()
 
     @bot_command(level=Group.MODERATOR)
@@ -265,11 +261,12 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def nuke(self, cmd: BotCommand, pid: str, amount: str = "1") -> None:
+    async def nuke(self, _: BotCommand, pid: str) -> None:
         """
-        <player> [<amount>] - nukes a player
+        <player> - nukes a player
         """
-        raise NotImplementedError
+        player = self.get_player(pid)
+        await self.bot.rcon.nuke(player.slot)
 
     @bot_command(level=Group.ADMIN)
     async def permban(self, cmd: BotCommand, name: str) -> None:
@@ -308,11 +305,10 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def shuffleteams(self, cmd: BotCommand) -> None:
+    async def shuffleteams(self, _: BotCommand) -> None:
         """
         shuffle teams
         """
-        assert cmd.player
         await self.bot.rcon.shuffle_teams()
 
     @bot_command(Group.ADMIN, alias="sk")
@@ -327,7 +323,16 @@ class Plugin(BotPlugin):
         """
         <player> [<amount>] - slaps a player
         """
-        raise NotImplementedError
+        try:
+            times = int(amount)
+        except ValueError:
+            times = -1
+        if not 1 <= times <= 10:
+            await cmd.message("amount must be a number between 1 and 10")
+            return
+        player = self.get_player(pid)
+        for _ in range(times):
+            await self.bot.rcon.slap(player.slot)
 
     @bot_command(Group.MODERATOR)
     async def swap(self, cmd: BotCommand, pid1: str, pid2: str | None = None) -> None:
