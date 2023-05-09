@@ -224,8 +224,7 @@ class RconClient:
             kind += " "
         width = _MAX_MESSAGE_LENGTH - len(prefix)
         for line in _wrap_message(message, width):
-            await self._execute(f'{kind}"{prefix}{line}"')
-            await asyncio.sleep(0.25)
+            await self._execute(f'{kind}"{prefix}{line}"', multi_recv=True)
 
     async def players(self) -> Game:
         """

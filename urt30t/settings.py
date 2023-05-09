@@ -143,7 +143,7 @@ class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
     host: str = "127.0.0.1"
     port: int = 27960
     password: str = Required
-    recv_timeout: float = 0.220
+    recv_timeout: float = 0.25
 
 
 features = FeatureSettings()
