@@ -79,7 +79,7 @@ class Plugin(BotPlugin):
         """
         [<limit>] - if limit is given, sets the cvar else returns the current setting
         """
-        raise NotImplementedError
+        await self._set_var_or_show_var(cmd, "caplimit", limit)
 
     @bot_command(Group.MODERATOR)
     async def ci(self, cmd: BotCommand, pid: str) -> None:
@@ -150,7 +150,7 @@ class Plugin(BotPlugin):
         """
         [<limit>] - if limit is given, sets the cvar else returns the current setting
         """
-        raise NotImplementedError
+        await self._set_var_or_show_var(cmd, "fraglimit", limit)
 
     @bot_command(level=Group.GUEST)
     async def cmd_help(self, cmd: BotCommand, name: str | None = None) -> None:
@@ -378,10 +378,7 @@ class Plugin(BotPlugin):
         """
         [<limit>] - if limit is given, sets the cvar else returns the current setting
         """
-        if limit is not None:
-            await self.bot.rcon.setcvar("timelimit", limit)
-        elif cvar := await self.bot.rcon.cvar("timelimit"):
-            await cmd.message(f"timelimit is set to {cvar.value}")
+        await self._set_var_or_show_var(cmd, "timelimit", limit)
 
     @bot_command(Group.ADMIN)
     async def unban(self, cmd: BotCommand) -> None:
@@ -403,6 +400,14 @@ class Plugin(BotPlugin):
         vetoes the current running Vote
         """
         await self.bot.rcon.veto()
+
+    async def _set_var_or_show_var(
+        self, cmd: BotCommand, name: str, value: str | None = None
+    ) -> None:
+        if value is not None:
+            await self.bot.rcon.setcvar(name, value)
+        elif cvar := await self.bot.rcon.cvar(name):
+            await cmd.message(f"{name} is set to {cvar.value}")
 
     @bot_subscribe
     async def on_say(self, event: events.Say) -> None:
