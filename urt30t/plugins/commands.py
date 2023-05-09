@@ -394,12 +394,12 @@ class Plugin(BotPlugin):
         """
         raise NotImplementedError
 
-    @bot_command(Group.ADMIN)
-    async def veto(self, cmd: BotCommand) -> None:
+    @bot_command(Group.MODERATOR)
+    async def veto(self, _: BotCommand) -> None:
         """
         vetoes the current running Vote
         """
-        raise NotImplementedError
+        await self.bot.rcon.veto()
 
     @bot_subscribe
     async def on_say(self, event: events.Say) -> None:

@@ -256,6 +256,9 @@ class RconClient:
     async def swap_teams(self) -> None:
         await self._execute(b"swapteams")
 
+    async def veto(self) -> None:
+        await self._execute(b"veto")
+
     async def _execute(
         self, cmd: str | bytes, *, retry: bool = False, multi_recv: bool = False
     ) -> bytes | None:
