@@ -378,7 +378,10 @@ class Plugin(BotPlugin):
         """
         [<limit>] - if limit is given, sets the cvar else returns the current setting
         """
-        raise NotImplementedError
+        if limit is not None:
+            await self.bot.rcon.setcvar("timelimit", limit)
+        elif cvar := await self.bot.rcon.cvar("timelimit"):
+            await cmd.message(f"timelimit is set to {cvar.value}")
 
     @bot_command(Group.ADMIN)
     async def unban(self, cmd: BotCommand) -> None:

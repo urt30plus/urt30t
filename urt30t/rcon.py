@@ -176,7 +176,7 @@ class RconClient:
 
     async def cvarlist(self, prefix: str) -> dict[str, str]:
         result: dict[str, str] = {}
-        if not (data := await self._execute(f"cvarlist {prefix}", multi_recv=True)):
+        if not (data := await self._execute(f"cvarlist {prefix}")):
             return result
         items = data.decode(encoding=_ENCODING).splitlines()
         for cv in items[:-3]:
@@ -204,9 +204,7 @@ class RconClient:
         return None
 
     async def maps(self) -> list[str]:
-        if not (
-            data := await self._execute(b"fdir *.bsp", retry=True, multi_recv=True)
-        ):
+        if not (data := await self._execute(b"fdir *.bsp", retry=True)):
             logger.error("command returned no data")
             return []
         lines = data.decode(encoding=_ENCODING).splitlines()
@@ -224,7 +222,7 @@ class RconClient:
             kind += " "
         width = _MAX_MESSAGE_LENGTH - len(prefix)
         for line in _wrap_message(message, width):
-            await self._execute(f'{kind}"{prefix}{line}"', multi_recv=True)
+            await self._execute(f'{kind}"{prefix}{line}"')
 
     async def players(self) -> Game:
         """
@@ -239,7 +237,7 @@ class RconClient:
         1:bar^7 TEAM:BLUE KILLS:20 DEATHS:9 ASSISTS:0 PING:98 AUTH:bar IP:127.0.0.1
         2:baz^7 TEAM:RED KILLS:32 DEATHS:18 ASSISTS:0 PING:98 AUTH:baz IP:127.0.0.1
         """
-        if not (data := await self._execute(b"players", retry=True, multi_recv=True)):
+        if not (data := await self._execute(b"players", retry=True)):
             logger.error("players command returned no data")
             raise LookupError
         return _parse_players_command(data.decode(encoding=_ENCODING))
@@ -250,6 +248,9 @@ class RconClient:
     async def reload(self) -> None:
         await self._execute(b"reload")
 
+    async def setcvar(self, name: str, value: str) -> None:
+        await self._execute(f"{name} {value}")
+
     async def shuffle_teams(self) -> None:
         await self._execute(b"shuffleteams")
 
@@ -259,9 +260,7 @@ class RconClient:
     async def veto(self) -> None:
         await self._execute(b"veto")
 
-    async def _execute(
-        self, cmd: str | bytes, *, retry: bool = False, multi_recv: bool = False
-    ) -> bytes | None:
+    async def _execute(self, cmd: str | bytes, *, retry: bool = False) -> bytes | None:
         if isinstance(cmd, str):
             cmd = cmd.encode(encoding=_ENCODING)
         cmd = b'%srcon "%s" %s\n' % (_CMD_PREFIX, self._password, cmd)
@@ -274,12 +273,12 @@ class RconClient:
             self._transport.sendto(cmd)
             await self._buffer_free.wait()
             data = await self._recv()
-            if multi_recv and data is not None:
+            if data is not None:
                 while more_data := await self._recv():
                     data += more_data
 
         if retry and data is None:
-            return await self._execute(cmd, retry=False, multi_recv=multi_recv)
+            return await self._execute(cmd, retry=False)
 
         return data
 
