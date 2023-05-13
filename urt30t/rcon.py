@@ -193,6 +193,10 @@ class RconClient:
             raise ValueError(team)
         await self._execute(f"forceteam {slot} {target}")
 
+    async def game_info(self) -> Game:
+        data = await self.players()
+        return _parse_players_command(data)
+
     async def map_restart(self) -> None:
         await self._execute(b"map_restart")
 
@@ -227,23 +231,11 @@ class RconClient:
     async def nuke(self, slot: str) -> None:
         await self._execute(f"nuke {slot}")
 
-    async def players(self) -> Game:
-        """
-        Map: ut4_abbey
-        Players: 3
-        GameType: CTF
-        Scores: R:5 B:10
-        MatchMode: OFF
-        WarmupPhase: NO
-        GameTime: 00:12:04
-        0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
-        1:bar^7 TEAM:BLUE KILLS:20 DEATHS:9 ASSISTS:0 PING:98 AUTH:bar IP:127.0.0.1
-        2:baz^7 TEAM:RED KILLS:32 DEATHS:18 ASSISTS:0 PING:98 AUTH:baz IP:127.0.0.1
-        """
+    async def players(self) -> str:
         if not (data := await self._execute(b"players", retry=True)):
             logger.error("players command returned no data")
             raise LookupError
-        return _parse_players_command(data.decode(encoding=_ENCODING))
+        return data.decode(encoding=_ENCODING)
 
     async def private_message(self, slot: str, message: str, prefix: str = "") -> None:
         await self.message(message, prefix, f"tell {slot}")

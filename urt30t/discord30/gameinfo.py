@@ -47,7 +47,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         return result
 
     async def fetch_game_info(self) -> Game:
-        game = await self.rcon_client.players()
+        game = await self.rcon_client.game_info()
         return Game.from_dict(game)
 
     def should_update_embed(

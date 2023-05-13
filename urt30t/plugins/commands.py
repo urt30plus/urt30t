@@ -87,7 +87,7 @@ class Plugin(BotPlugin):
         <player> - kick a client that has an interrupted connection
         """
         player = self.get_player(pid)
-        gameinfo = await self.bot.rcon.players()
+        gameinfo = await self.bot.rcon.game_info()
         for slot in gameinfo.get("Slots", []):
             if slot["slot"] == player.slot:
                 try:
