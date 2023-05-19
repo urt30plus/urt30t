@@ -4,8 +4,8 @@ import time
 
 import discord
 
-from .. import rcon
-from ..models import Game, GameType, Player
+from urt30arcon import AsyncRconClient, Game, GameType, Player
+
 from . import DiscordClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
     def __init__(
         self,
         api_client: DiscordClient,
-        rcon_client: rcon.RconClient,
+        rcon_client: AsyncRconClient,
         channel_name: str,
         embed_title: str,
         game_host: str | None = None,
@@ -47,8 +47,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         return result
 
     async def fetch_game_info(self) -> Game:
-        game = await self.rcon_client.game_info()
-        return Game.from_dict(game)
+        return await self.rcon_client.game_info()
 
     def should_update_embed(
         self, message: discord.Message, embed: discord.Embed

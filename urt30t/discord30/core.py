@@ -4,7 +4,7 @@ from typing import Any
 
 import discord
 
-from .. import rcon
+from urt30arcon import AsyncRconClient
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class DiscordEmbedUpdater(abc.ABC):
     def __init__(
         self,
         api_client: DiscordClient,
-        rcon_client: rcon.RconClient,
+        rcon_client: AsyncRconClient,
         channel_name: str,
         embed_title: str,
     ) -> None:

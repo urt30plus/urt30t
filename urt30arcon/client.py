@@ -4,7 +4,10 @@ import re
 import textwrap
 from asyncio.transports import DatagramTransport
 from pathlib import Path
-from typing import Any, NamedTuple, TypedDict, cast
+from typing import Self
+
+from .models import Cvar, Game
+from .protocol import _Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -36,94 +39,10 @@ _CVAR_PATTERNS = (
     ),
 )
 
-RE_COLOR = re.compile(r"(\^\d)")
-
-RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
-
-_RE_PLAYER = re.compile(
-    r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
-    r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
-    r"KILLS:(?P<kills>-?[0-9]+)\s+"
-    r"DEATHS:(?P<deaths>[0-9]+)\s+"
-    r"ASSISTS:(?P<assists>[0-9]+)\s+"
-    r"PING:(?P<ping>[0-9]+|CNCT|ZMBI)\s+"
-    r"AUTH:(?P<auth>.*)\s+"
-    r"IP:(?P<ip_address>.*)$",
-    re.IGNORECASE,
-)
-
 _TEAM_NAMES = ("red", "r", "blue", "b", "spectator", "spec", "s")
 
 
-class _Protocol(asyncio.DatagramProtocol):
-    def __init__(
-        self, recv_q: asyncio.Queue[bytes], buffer_free: asyncio.Event
-    ) -> None:
-        buffer_free.set()
-        self._recv_q = recv_q
-        self._buffer_free = buffer_free
-        self._transport: DatagramTransport | None = None
-
-    def connection_made(self, transport: asyncio.BaseTransport) -> None:
-        logger.debug(transport)
-        self._transport = cast(DatagramTransport, transport)
-
-    def connection_lost(self, exc: Exception | None) -> None:
-        if exc is None:
-            logger.info("Connection closed")
-        else:
-            logger.error("Connection closed: %r", exc)
-        if size := self._recv_q.qsize():
-            logger.warning("Receive queue has pending items: %s", size)
-        if self._transport:
-            self._transport.close()
-
-    def datagram_received(self, data: bytes, _: tuple[str | Any, int]) -> None:
-        logger.debug(data)
-        self._recv_q.put_nowait(data)
-
-    def error_received(self, exc: Exception) -> None:
-        self.connection_lost(exc)
-
-    def pause_writing(self) -> None:
-        logger.warning("pausing writes")
-        self._buffer_free.clear()
-
-    def resume_writing(self) -> None:
-        logger.warning("resuming writes")
-        self._buffer_free.set()
-
-
-class Cvar(NamedTuple):
-    name: str
-    value: str
-    default: str | None = None
-
-
-class Player(TypedDict):
-    slot: str
-    name: str
-    team: str
-    kills: int
-    deaths: int
-    assists: int
-    ping: str
-    auth: str
-    ip_address: str
-
-
-class Game(TypedDict):
-    Map: str
-    Players: int
-    GameType: str
-    Scores: str
-    MatchMode: bool
-    WarmupPhase: bool
-    GameTime: str
-    Slots: list[Player]
-
-
-class RconClient:
+class AsyncRconClient:
     def __init__(
         self,
         host: str,
@@ -195,7 +114,7 @@ class RconClient:
 
     async def game_info(self) -> Game:
         data = await self.players()
-        return _parse_players_command(data)
+        return Game.from_string(data)
 
     async def map_restart(self) -> None:
         await self._execute(b"map_restart")
@@ -299,95 +218,28 @@ class RconClient:
             f"recv_timeout={self._recv_timeout})"
         )
 
+    @classmethod
+    async def create_client(
+        cls, host: str, port: int, password: str, recv_timeout: float = 0.2
+    ) -> Self:
+        recv_q = asyncio.Queue[bytes]()
+        buffer_free = asyncio.Event()
+        transport = await _new_transport(host, port, recv_q, buffer_free)
+        return cls(
+            host,
+            port,
+            password.encode(encoding=_ENCODING),
+            transport,
+            recv_q,
+            recv_timeout,
+            buffer_free,
+        )
+
 
 def _wrap_message(message: str, width: int) -> list[str]:
     return [
         x.strip() for line in message.splitlines() for x in textwrap.wrap(line, width)
     ]
-
-
-def _parse_players_player(data: str) -> Player:
-    """
-    0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
-    """
-    if m := _RE_PLAYER.match(data.strip()):
-        ip_addr, _, port = m["ip_address"].partition(":")
-        return {
-            "slot": m["slot"],
-            "name": m["name"].removesuffix("^7"),
-            "team": m["team"],
-            "kills": int(m["kills"]),
-            "deaths": int(m["deaths"]),
-            "assists": int(m["assists"]),
-            "ping": m["ping"],
-            "auth": m["auth"],
-            "ip_address": ip_addr,
-        }
-
-    raise ValueError(data)
-
-
-def _parse_players_command(data: str) -> Game:
-    """
-    Map: ut4_abbey
-    Players: 3
-    GameType: CTF
-    Scores: R:5 B:10
-    MatchMode: OFF
-    WarmupPhase: NO
-    GameTime: 00:12:04
-    0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
-    """
-    in_header = True
-    game: Game = {}  # type: ignore[typeddict-item]
-    players = []
-    for line in data.splitlines():
-        k, v = line.split(":", maxsplit=1)
-        v = v.strip()
-        if in_header:
-            if k == "Map":
-                game["Map"] = v
-            elif k == "Players":
-                game["Players"] = int(v)
-            elif k == "GameType":
-                game["GameType"] = v
-            elif k == "Scores":
-                game["Scores"] = v
-            elif k == "MatchMode":
-                game["MatchMode"] = v != "OFF"
-            elif k == "WarmupPhase":
-                game["WarmupPhase"] = v != "NO"
-            elif k == "GameTime":
-                game["GameTime"] = v
-                in_header = False
-            else:
-                logger.warning("unknown header: %s - %s", k, v)
-        elif k.isnumeric():
-            players.append(_parse_players_player(line))
-        elif k == "Map":
-            # back-to-back messages, start over
-            game["Map"] = v
-            in_header = True
-
-    game["Slots"] = players
-    return game
-
-
-async def create_client(
-    host: str, port: int, password: str, recv_timeout: float = 0.2
-) -> RconClient:
-    recv_q = asyncio.Queue[bytes]()
-    buffer_free = asyncio.Event()
-    transport = await _new_transport(host, port, recv_q, buffer_free)
-    return RconClient(
-        host,
-        port,
-        password.encode(encoding=_ENCODING),
-        transport,
-        recv_q,
-        recv_timeout,
-        buffer_free,
-    )
 
 
 async def _new_transport(

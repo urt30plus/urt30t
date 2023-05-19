@@ -2,10 +2,8 @@ import logging
 
 from urt30t import (
     BotPlugin,
-    GameState,
     GameType,
     Player,
-    PlayerState,
     Team,
     bot_subscribe,
     events,
@@ -29,13 +27,13 @@ class Plugin(BotPlugin):
     @bot_subscribe
     async def on_warmup(self, event: events.Warmup) -> None:
         logger.debug(event)
-        self.bot.game.state = GameState.WARMUP
+        self.bot.game.warmup = True
 
     @bot_subscribe
     async def on_init_round(self, event: events.InitRound) -> None:
         logger.debug(event)
         # TODO: assert or check that previous state was Warmup?
-        self.bot.game.state = GameState.LIVE
+        self.bot.game.warmup = False
 
     @bot_subscribe
     async def on_client_connect(self, event: events.ClientConnect) -> None:
@@ -99,10 +97,8 @@ class Plugin(BotPlugin):
     @bot_subscribe
     async def on_account_validated(self, event: events.AccountValidated) -> None:
         logger.debug(event)
-        if player := self.bot.player(event.slot):
-            player.validated = True
-            if player.auth != event.auth:
-                logger.warning("%s != %s", player.auth, event.auth)
+        if (player := self.bot.player(event.slot)) and player.auth != event.auth:
+            logger.warning("%s != %s", player.auth, event.auth)
 
     @bot_subscribe
     async def on_client_begin(self, event: events.ClientBegin) -> None:
@@ -112,8 +108,6 @@ class Plugin(BotPlugin):
     @bot_subscribe
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
         logger.debug(event)
-        if player := self.bot.player(event.slot):
-            player.state = PlayerState.ALIVE
 
     @bot_subscribe
     async def on_client_disconnect(self, event: events.ClientDisconnect) -> None:

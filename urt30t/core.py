@@ -14,15 +14,21 @@ from typing import TypeVar, cast
 import aiofiles
 import aiofiles.os
 
-from . import discord30, events, rcon, settings, tasks, version
+from urt30arcon import AsyncRconClient, Game, Player
+
+from . import (
+    discord30,
+    events,
+    settings,
+    tasks,
+    version,
+)
 from .models import (
     BotCommand,
     BotCommandConfig,
     BotError,
     BotPlugin,
-    Game,
     Group,
-    Player,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +43,7 @@ class Bot:
         self._events_queue = asyncio.Queue[events.LogEvent](
             self._conf.event_queue_max_size
         )
-        self._rcon: rcon.RconClient | None = None
+        self._rcon: AsyncRconClient | None = None
         self._discord: discord30.DiscordClient | None = None
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
@@ -81,7 +87,7 @@ class Bot:
                 pass
 
     @property
-    def rcon(self) -> rcon.RconClient:
+    def rcon(self) -> AsyncRconClient:
         if self._rcon is None:
             msg = "Rcon Client is not initialized"
             raise BotError(msg)
@@ -101,8 +107,7 @@ class Bot:
 
     async def sync_game(self) -> None:
         old_game = self.game
-        new_game = await self.rcon.game_info()
-        self.game = Game.from_dict(new_game)
+        self.game = await self.rcon.game_info()
         await asyncio.gather(
             *[self.sync_player(p.slot) for p in self.game.players.values()]
         )
@@ -113,8 +118,6 @@ class Bot:
             raise RuntimeError(slot)
         # TODO: load/save info from/to db
         # TODO: check for bans
-        if player.group is Group.UNKNOWN:
-            player.group = Group.GUEST
         return player
 
     def player(self, slot: str) -> Player | None:
@@ -150,7 +153,7 @@ class Bot:
     async def on_startup(self, event: events.BotStartup) -> None:
         logger.debug(event)
         if settings.features.command_dispatch or settings.features.discord_updates:
-            self._rcon = await rcon.create_client(
+            self._rcon = await AsyncRconClient.create_client(
                 host=settings.rcon.host,
                 port=settings.rcon.port,
                 password=settings.rcon.password,

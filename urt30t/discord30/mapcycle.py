@@ -6,8 +6,8 @@ from pathlib import Path
 import aiofiles
 import discord
 
-from .. import rcon
-from ..models import GameType
+from urt30arcon import AsyncRconClient, GameType
+
 from . import DiscordClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class MapCycleUpdater(DiscordEmbedUpdater):
     def __init__(
         self,
         api_client: DiscordClient,
-        rcon_client: rcon.RconClient,
+        rcon_client: AsyncRconClient,
         channel_name: str,
         embed_title: str,
         mapcycle_file: Path,

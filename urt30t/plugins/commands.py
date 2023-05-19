@@ -88,16 +88,11 @@ class Plugin(BotPlugin):
         """
         player = self.get_player(pid)
         gameinfo = await self.bot.rcon.game_info()
-        for slot in gameinfo.get("Slots", []):
-            if slot["slot"] == player.slot:
-                try:
-                    ping = int(slot["ping"])
-                except ValueError:
-                    ping = 999
-                if ping >= 500:
-                    # TODO: fix
-                    await cmd.message("yep, ci")
-                    return
+        for slot, p in gameinfo.players.items():
+            if slot == player.slot and p.ping >= 500:
+                # TODO: fix
+                await cmd.message("yep, ci")
+                return
 
         await cmd.message("not ci")
 
@@ -155,7 +150,7 @@ class Plugin(BotPlugin):
         # TODO: get list of commands available to the player that issued command
         #   or make sure the user has access to the target command
         if name:
-            if cmd_config := self._find_command_config(name, cmd.player.group):
+            if cmd_config := self._find_command_config(name, cmd.player_group()):
                 if doc_string := cmd_config.handler.__doc__:
                     clean_doc = " ".join(x.strip() for x in doc_string.splitlines())
                     message = f'"{clean_doc}"'
@@ -196,7 +191,7 @@ class Plugin(BotPlugin):
         """
         # TODO: handle cases where data is another user to test
         logger.debug(pid)
-        await cmd.message(f"{cmd.player.group.name}")
+        await cmd.message(f"{cmd.player_group().name}")
 
     @bot_command(Group.MODERATOR)
     async def cmd_list(self, cmd: BotCommand) -> None:
@@ -437,7 +432,7 @@ class Plugin(BotPlugin):
             player=player,
             args=cmd_args,
         )
-        if cmd_config := self._find_command_config(name, player.group):
+        if cmd_config := self._find_command_config(name, cmd.player_group()):
             if cmd_config.max_args == 0:
                 cmd_args = []
             elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
@@ -458,7 +453,7 @@ class Plugin(BotPlugin):
                 await cmd.message(f"Which player? {choices}", MessageType.PRIVATE)
         else:
             logger.warning("no command config found: %s", event)
-            if candidates := self._find_command_sounds_like(name, player.group):
+            if candidates := self._find_command_sounds_like(name, cmd.player_group()):
                 msg = f"did you mean? {', '.join(candidates)}"
             else:
                 msg = f"command [{name}] not found"
