@@ -1,8 +1,8 @@
 aiofiles==23.1.0
-alembic==1.10.4
+alembic==1.11.1
 discord.py==2.2.3
 pydantic==1.10.7
 python-dotenv==1.0.0
-sqlalchemy==2.0.13
+sqlalchemy==2.0.14
 tzdata
 uvloop==0.17.0; sys_platform == 'linux'
