@@ -62,7 +62,7 @@ class AsyncRconClient:
         self._recv_timeout = recv_timeout
         self._buffer_free = buffer_free
         self._lock = asyncio.Lock()
-        self._tasks = set()
+        self._tasks: set[asyncio.Task[None]] = set()
 
     async def bigtext(self, message: str) -> None:
         await self._send_message(message, kind="bigtext")
