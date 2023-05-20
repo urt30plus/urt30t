@@ -3,8 +3,9 @@ import logging
 import re
 import textwrap
 from asyncio.transports import DatagramTransport
+from collections.abc import Coroutine
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from .models import Cvar, Game
 from .protocol import _Protocol
@@ -61,6 +62,7 @@ class AsyncRconClient:
         self._recv_timeout = recv_timeout
         self._buffer_free = buffer_free
         self._lock = asyncio.Lock()
+        self._tasks = set()
 
     async def bigtext(self, message: str) -> None:
         await self._send_message(message, kind="bigtext")
@@ -177,7 +179,12 @@ class AsyncRconClient:
         if kind and not kind.endswith(" "):
             kind += " "
         for line in _wrap_message(message, _MAX_MESSAGE_LENGTH):
-            await self._execute(f'{kind}"{line}"')
+            self._run_as_task(self._execute(f'{kind}"{line}"'))
+
+    def _run_as_task(self, coro: Coroutine[Any, None, Any]) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def _execute(self, cmd: str | bytes, *, retry: bool = False) -> bytes | None:
         if isinstance(cmd, str):
