@@ -240,15 +240,13 @@ class BotCommand:
         self, message: str, message_type: MessageType | None = None
     ) -> None:
         prefix = self.plugin.bot.message_prefix + " "
-        # TODO: handle wrapping
         if message_type is None:
             message_type = self.message_type
         if message_type is MessageType.PRIVATE:
             prefix += "^8[pm]^7 "
-            await self.plugin.bot.rcon.private_message(
-                slot=self.player.slot, message=message, prefix=prefix
-            )
+            message = prefix + message
+            await self.plugin.bot.rcon.tell(slot=self.player.slot, message=message)
         elif message_type is MessageType.LOUD:
-            await self.plugin.bot.rcon.message(message=message, prefix=prefix)
+            await self.plugin.bot.rcon.say(message=prefix + message)
         else:
-            await self.plugin.bot.rcon.bigtext(message=message, prefix=prefix)
+            await self.plugin.bot.rcon.bigtext(message=prefix + message)

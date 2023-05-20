@@ -62,11 +62,11 @@ class AsyncRconClient:
         self._buffer_free = buffer_free
         self._lock = asyncio.Lock()
 
-    async def bigtext(self, message: str, prefix: str = "") -> None:
-        await self.message(message, prefix=prefix, kind="bigtext")
+    async def bigtext(self, message: str) -> None:
+        await self._send_message(message, kind="bigtext")
 
-    async def broadcast(self, message: str, prefix: str = "") -> None:
-        await self.message(message, prefix=prefix, kind="")
+    async def broadcast(self, message: str) -> None:
+        await self._send_message(message, kind="")
 
     def close(self) -> None:
         self._transport.close()
@@ -140,13 +140,6 @@ class AsyncRconClient:
             return []
         return [x.removeprefix("maps/").removesuffix(".bsp") for x in lines[1:-1]]
 
-    async def message(self, message: str, prefix: str = "", kind: str = "say") -> None:
-        if kind and not kind.endswith(" "):
-            kind += " "
-        width = _MAX_MESSAGE_LENGTH - len(prefix)
-        for line in _wrap_message(message, width):
-            await self._execute(f'{kind}"{prefix}{line}"')
-
     async def nuke(self, slot: str) -> None:
         await self._execute(f"nuke {slot}")
 
@@ -156,8 +149,11 @@ class AsyncRconClient:
             raise LookupError
         return data.decode(encoding=_ENCODING)
 
-    async def private_message(self, slot: str, message: str, prefix: str = "") -> None:
-        await self.message(message, prefix, f"tell {slot}")
+    async def say(self, message: str) -> None:
+        await self._send_message(message, kind="say")
+
+    async def tell(self, slot: str, message: str) -> None:
+        await self._send_message(message, kind=f"tell {slot}")
 
     async def reload(self) -> None:
         await self._execute(b"reload")
@@ -176,6 +172,12 @@ class AsyncRconClient:
 
     async def veto(self) -> None:
         await self._execute(b"veto")
+
+    async def _send_message(self, message: str, kind: str) -> None:
+        if kind and not kind.endswith(" "):
+            kind += " "
+        for line in _wrap_message(message, _MAX_MESSAGE_LENGTH):
+            await self._execute(f'{kind}"{line}"')
 
     async def _execute(self, cmd: str | bytes, *, retry: bool = False) -> bytes | None:
         if isinstance(cmd, str):

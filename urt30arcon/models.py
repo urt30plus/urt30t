@@ -8,8 +8,8 @@ from typing import Any, NamedTuple, Self
 logger = logging.getLogger(__name__)
 
 RE_COLOR = re.compile(r"(\^\d)")
-RE_SCORES = re.compile(r"\s*R:(?P<red>\d+)\s+B:(?P<blue>\d+)")
-_RE_PLAYER = re.compile(
+RE_SCORES = re.compile(r"\s*R:(?P<RED>\d+)\s+B:(?P<BLUE>\d+)")
+RE_PLAYER = re.compile(
     r"^(?P<slot>[0-9]+):(?P<name>.*)\s+"
     r"TEAM:(?P<team>RED|BLUE|SPECTATOR|FREE)\s+"
     r"KILLS:(?P<kills>-?[0-9]+)\s+"
@@ -17,7 +17,7 @@ _RE_PLAYER = re.compile(
     r"ASSISTS:(?P<assists>[0-9]+)\s+"
     r"PING:(?P<ping>[0-9]+|CNCT|ZMBI)\s+"
     r"AUTH:(?P<auth>.*)\s+"
-    r"IP:(?P<ip_address>.*)$",
+    r"IP:(?P<ip_address>.*):(?P<ip_port>.*)$",
     re.IGNORECASE,
 )
 
@@ -87,21 +87,28 @@ class Player:
     @classmethod
     def from_string(cls, data: str) -> Self:
         """
-        0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
+        0:foo^7 TEAM:RED KILLS:8 DEATHS:5 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1:27960
         """
-        if m := _RE_PLAYER.match(data.strip()):
-            ip_addr, _, port = m["ip_address"].partition(":")
-            ping = -1 if m["ping"] in ("CNCT", "ZMBI") else int(m["ping"])
+        if m := RE_PLAYER.match(data.strip()):
+            try:
+                ping = int(m["ping"])
+            except ValueError:
+                if m["ping"] == "CNCT":
+                    ping = -1
+                elif m["ping"] == "ZMBI":
+                    ping = -2
+                else:
+                    raise
             return cls(
                 slot=m["slot"],
                 name=m["name"].removesuffix("^7"),
-                team=Team[m["temp"]],
+                team=Team[m["team"]],
                 kills=int(m["kills"]),
                 deaths=int(m["deaths"]),
                 assists=int(m["assists"]),
                 ping=ping,
                 auth=m["auth"],
-                ip_address=ip_addr,
+                ip_address=m["ip_address"],
             )
 
         raise ValueError(data)
@@ -120,38 +127,35 @@ class Game:
 
     @property
     def score_red(self) -> str | None:
-        if not self.scores:
-            return None
-        if m := RE_SCORES.match(self.scores):
-            return m["red"]
-        return None
+        return self._get_score_by_team(Team.RED)
 
     @property
     def score_blue(self) -> str | None:
-        if not self.scores:
-            return None
-        if m := RE_SCORES.match(self.scores):
-            return m["blue"]
-        return None
+        return self._get_score_by_team(Team.BLUE)
 
     @property
     def spectators(self) -> list[Player]:
-        return self._get_team(Team.SPECTATOR)
+        return self._get_players_by_team(Team.SPECTATOR)
 
     @property
     def team_free(self) -> list[Player]:
-        return self._get_team(Team.FREE)
+        return self._get_players_by_team(Team.FREE)
 
     @property
     def team_red(self) -> list[Player]:
-        return self._get_team(Team.RED)
+        return self._get_players_by_team(Team.RED)
 
     @property
     def team_blue(self) -> list[Player]:
-        return self._get_team(Team.BLUE)
+        return self._get_players_by_team(Team.BLUE)
 
-    def _get_team(self, team: Team) -> list[Player]:
+    def _get_players_by_team(self, team: Team) -> list[Player]:
         return [p for p in self.players.values() if p.team is team]
+
+    def _get_score_by_team(self, team: Team) -> str | None:
+        if self.scores and (m := RE_SCORES.match(self.scores)):
+            return m[team.name]
+        return None
 
     @classmethod
     def from_string(cls, data: str) -> Self:  # noqa: PLR0912
@@ -165,9 +169,8 @@ class Game:
         GameTime: 00:12:04
         0:foo^7 TEAM:RED KILLS:15 DEATHS:22 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1
         """
-        in_header = True
         game = cls()
-        players = []
+        in_header = True
         for line in data.splitlines():
             k, v = line.split(":", maxsplit=1)
             v = v.strip()
@@ -190,7 +193,8 @@ class Game:
                 else:
                     logger.warning("unknown header: %s - %s", k, v)
             elif k.isnumeric():
-                players.append(Player.from_string(line))
+                player = Player.from_string(line)
+                game.players[player.slot] = player
             elif k == "Map":
                 # back-to-back messages, start over
                 game.map_name = v
@@ -199,13 +203,12 @@ class Game:
         if game.map_name == "Unknown":
             raise RconError("map_not_found")
 
-        if len(players) != game.player_count:
+        if len(game.players) != game.player_count:
             msg = (
                 f"Player count {game.player_count} does not match "
-                f"players {len(players)}"
+                f"players {len(game.players)}"
                 f"\n\n{game}"
             )
             raise RconError(msg)
 
-        game.players = {p.slot: p for p in players}
         return game
