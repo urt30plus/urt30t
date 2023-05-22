@@ -6,10 +6,10 @@ import inspect
 import logging
 import os
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from pathlib import Path
 from types import FunctionType
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
@@ -20,7 +20,6 @@ from . import (
     discord30,
     events,
     settings,
-    tasks,
     version,
 )
 from .models import (
@@ -51,13 +50,14 @@ class Bot:
         ] = defaultdict(list)
         self._command_handlers: dict[str, BotCommandConfig] = {}
         self.game = Game()
+        self._tasks: set[asyncio.Task[None]] = set()
 
     async def run(self) -> None:
         logger.info("%s running", self)
-        tasks.background(self._run_cleanup())
+        self._run_background_task(self._run_cleanup())
 
         if settings.features.log_parsing:
-            tasks.background(
+            self._run_background_task(
                 _tail_log(
                     log_file=self._conf.games_log,
                     event_queue=self._events_queue,
@@ -168,10 +168,10 @@ class Bot:
                 server_name=self._conf.discord.server_name,
             )
             await self._discord.login(self._conf.discord.token)
-            tasks.background(
+            self._run_background_task(
                 self._discord_update_gameinfo(self._discord, self._conf.discord)
             )
-            tasks.background(
+            self._run_background_task(
                 self._discord_update_mapcycle(self._discord, self._conf.discord)
             )
         else:
@@ -332,6 +332,11 @@ class Bot:
             except Exception:
                 logger.exception("Mapcycle update failed")
             await asyncio.sleep(delay)
+
+    def _run_background_task(self, coro: Coroutine[Any, None, Any]) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     def __repr__(self) -> str:
         return f"Bot(v{version.__version__}, started={self._started_at})"
