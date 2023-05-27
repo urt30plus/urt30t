@@ -1,7 +1,7 @@
 aiofiles==23.1.0
 alembic==1.11.1
 discord.py==2.2.3
-pydantic==1.10.7
+pydantic==1.10.8
 python-dotenv==1.0.0
 sqlalchemy==2.0.15
 tzdata
