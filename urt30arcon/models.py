@@ -20,6 +20,32 @@ RE_PLAYER = re.compile(
     r"IP:(?P<ip_address>.*):(?P<ip_port>.*)$",
     re.IGNORECASE,
 )
+_RE_CVAR_PATTERNS = (
+    # "sv_maxclients" is:"16^7" default:"8^7"
+    # latched: "12"  # noqa: ERA001
+    re.compile(
+        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
+        r'"(?P<value>.*?)(\^7)?"\s+default:\s*'
+        r'"(?P<default>.*?)(\^7)?"$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    # "g_maxGameClients" is:"0^7", the default
+    # latched: "1"  # noqa: ERA001
+    re.compile(
+        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
+        r'"(?P<default>(?P<value>.*?))(\^7)?",\s+the\sdefault$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    # "mapname" is:"ut4_abbey^7"
+    re.compile(
+        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*"(?P<value>.*?)(\^7)?"$',
+        re.IGNORECASE | re.MULTILINE,
+    ),
+)
+_RE_AUTH_WHOIS = re.compile(
+    r"^auth: id: (?P<id>\d+) - name: (?P<name>.*?) - login: (?P<login>.*?)"
+    r" - notoriety: (?P<notoriety>.*?) - level: (?P<level>[-0-9]+)\s+"
+)
 
 _GAME_MAP_UNKNOWN = "unknown"
 
@@ -28,10 +54,84 @@ class RconError(Exception):
     pass
 
 
+class AuthWhois(NamedTuple):
+    id: str
+    name: str
+    login: str
+    notoriety: str | None
+    level: int
+
+    @classmethod
+    def from_string(cls, data: str) -> Self:
+        if m := _RE_AUTH_WHOIS.match(data):
+            return cls(
+                id=m["id"],
+                name=m["name"],
+                login=m["login"],
+                notoriety=m["notoriety"],
+                level=int(m["level"]),
+            )
+        raise ValueError(data)
+
+
 class Cvar(NamedTuple):
     name: str
     value: str
     default: str | None = None
+
+    @classmethod
+    def from_string(cls, data: str) -> Self:
+        for pat in _RE_CVAR_PATTERNS:
+            if m := pat.match(data):
+                break
+        else:
+            raise ValueError(data)
+        try:
+            default = m["default"]
+        except IndexError:
+            default = None
+        return cls(name=m["cvar"], value=m["value"], default=default)
+
+
+class ServerStatusClient(NamedTuple):
+    num: str
+    score: int
+    ping: int
+    name: str
+    lastmsg: str
+    address: str
+    qport: int
+    rate: int
+
+    @classmethod
+    def from_string(cls, data: str) -> Self:
+        return cls(
+            num=data[:3].strip(),
+            score=int(data[4:9].strip()),
+            ping=int(data[10:14].strip()),
+            name=data[15:32].strip(),
+            lastmsg=data[33:40].strip(),
+            address=data[41:62].strip(),
+            qport=int(data[63:68].strip()),
+            rate=int(data[69:74].strip()),
+        )
+
+
+class ServerStatus(NamedTuple):
+    map_name: str
+    clients: list[ServerStatusClient]
+
+    @classmethod
+    def from_string(cls, data: str) -> Self:
+        """
+        map: ut4_casa
+        num score ping name            lastmsg address               qport rate
+        --- ----- ---- --------------- ------- --------------------- ----- -----
+          0     0    0 |30+|money            0 127.0.0.1:27961       58521 32000
+        """
+        lines = data.splitlines()
+        clients = [ServerStatusClient.from_string(line) for line in lines[3:] if line]
+        return cls(map_name=lines[0][5:], clients=clients)
 
 
 class Team(enum.Enum):

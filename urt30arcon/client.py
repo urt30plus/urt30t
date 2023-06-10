@@ -1,13 +1,12 @@
 import asyncio
 import logging
-import re
 import textwrap
 from asyncio.transports import DatagramTransport
 from collections.abc import Coroutine
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Self, cast
 
-from .models import Cvar, Game
+from .models import AuthWhois, Cvar, Game, RconError, ServerStatus
 from .protocol import _Protocol
 
 logger = logging.getLogger(__name__)
@@ -16,30 +15,6 @@ _CMD_PREFIX = b"\xff" * 4
 _REPLY_PREFIX = _CMD_PREFIX + b"print\n"
 _ENCODING = "latin-1"
 _MAX_MESSAGE_LENGTH = 80
-
-_CVAR_PATTERNS = (
-    # "sv_maxclients" is:"16^7" default:"8^7"
-    # latched: "12"  # noqa: ERA001
-    re.compile(
-        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
-        r'"(?P<value>.*?)(\^7)?"\s+default:\s*'
-        r'"(?P<default>.*?)(\^7)?"$',
-        re.IGNORECASE | re.MULTILINE,
-    ),
-    # "g_maxGameClients" is:"0^7", the default
-    # latched: "1"  # noqa: ERA001
-    re.compile(
-        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*'
-        r'"(?P<default>(?P<value>.*?))(\^7)?",\s+the\sdefault$',
-        re.IGNORECASE | re.MULTILINE,
-    ),
-    # "mapname" is:"ut4_abbey^7"
-    re.compile(
-        r'^"(?P<cvar>[a-z0-9_.]+)"\s+is:\s*"(?P<value>.*?)(\^7)?"$',
-        re.IGNORECASE | re.MULTILINE,
-    ),
-)
-
 _TEAM_NAMES = ("red", "r", "blue", "b", "spectator", "spec", "s")
 
 
@@ -64,6 +39,14 @@ class AsyncRconClient:
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
 
+    async def auth_whois(self, slot: str) -> AuthWhois:
+        if data := await self._execute(f"auth-whois {slot}"):
+            return AuthWhois.from_string(data.decode(_ENCODING))
+        raise RconError(slot)
+
+    async def ban(self, slot: str) -> None:
+        await self._execute(f"addip {slot}")
+
     async def bigtext(self, message: str) -> None:
         await self._send_message(message, kind="bigtext")
 
@@ -76,24 +59,7 @@ class AsyncRconClient:
     async def cvar(self, name: str) -> Cvar | None:
         if not (data := await self._execute(name, retry=True)):
             return None
-
-        cvar = data.decode(encoding=_ENCODING)
-        for pat in _CVAR_PATTERNS:
-            if m := pat.match(cvar):
-                break
-        else:
-            return None
-
-        if m["cvar"].lower() != name.lower():
-            logger.warning("cvar sent [%s], received [%s]", name, m["cvar"])
-            return None
-
-        try:
-            default = m["default"]
-        except IndexError:
-            default = None
-
-        return Cvar(name=name, value=m["value"], default=default)
+        return Cvar.from_string(data.decode(encoding=_ENCODING))
 
     async def cvarlist(self, prefix: str) -> dict[str, str]:
         result: dict[str, str] = {}
@@ -117,6 +83,15 @@ class AsyncRconClient:
     async def game_info(self) -> Game:
         data = await self.players()
         return Game.from_string(data)
+
+    async def kick(self, slot: str, reason: str | None = None) -> None:
+        cmd = f"kick {slot}"
+        if reason:
+            cmd += f' "{reason}"'
+        await self._execute(cmd)
+
+    async def kill(self, slot: str) -> None:
+        await self._execute(f"smite {slot}")
 
     async def map_restart(self) -> None:
         await self._execute(b"map_restart")
@@ -142,8 +117,15 @@ class AsyncRconClient:
             return []
         return [x.removeprefix("maps/").removesuffix(".bsp") for x in lines[1:-1]]
 
+    async def mute(self, slot: str, duration: str) -> None:
+        seconds = _duration_to_seconds(duration)
+        await self._execute(f"mute {slot} {seconds}")
+
     async def nuke(self, slot: str) -> None:
         await self._execute(f"nuke {slot}")
+
+    async def pause(self) -> None:
+        await self._execute(b"pause")
 
     async def players(self) -> str:
         if not (data := await self._execute(b"players", retry=True)):
@@ -157,8 +139,29 @@ class AsyncRconClient:
     async def tell(self, slot: str, message: str) -> None:
         await self._send_message(message, kind=f"tell {slot}")
 
+    async def rcon(self, command: str, *, retry: bool = True) -> str:
+        data = await self._execute(command, retry=retry)
+        return data.decode(_ENCODING) if data is not None else ""
+
     async def reload(self) -> None:
         await self._execute(b"reload")
+
+    async def serverinfo(self) -> dict[str, str]:
+        """
+        ]\rcon serverinfo
+        Server info settings:
+        sv_allowdownload    0
+        g_matchmode         0
+        g_gametype          7
+        sv_maxclients       16
+        ...
+        """
+        if data := await self._execute(b"serverinfo"):
+            return {
+                line[:20].strip(): line[20:].strip()
+                for line in data.decode(_ENCODING).splitlines()[1:]
+            }
+        raise RconError
 
     async def setcvar(self, name: str, value: str) -> None:
         await self._execute(f"{name} {value}")
@@ -169,8 +172,16 @@ class AsyncRconClient:
     async def slap(self, slot: str) -> None:
         await self._execute(f"slap {slot}")
 
+    async def status(self) -> ServerStatus:
+        if data := await self._execute(b"status"):
+            return ServerStatus.from_string(data.decode(_ENCODING))
+        raise RconError
+
     async def swap_teams(self) -> None:
         await self._execute(b"swapteams")
+
+    async def unban(self, ip_address: str) -> None:
+        await self._execute(f"removeip {ip_address}")
 
     async def veto(self) -> None:
         await self._execute(b"veto")
@@ -217,7 +228,7 @@ class AsyncRconClient:
             return None
         else:
             if data.startswith(_REPLY_PREFIX):
-                return data[len(_REPLY_PREFIX) :]
+                return data[len(_REPLY_PREFIX) :]  # noqa:RUF100,E203
             logger.warning("reply does not contain expected prefix: %r", data)
             return data
 
@@ -245,6 +256,23 @@ class AsyncRconClient:
         )
 
 
+def _duration_to_seconds(duration: str) -> int:
+    if not duration:
+        return 0
+    if (unit := duration[-1].lower()) == "m":
+        multiplier = 60
+    elif unit == "h":
+        multiplier = 3600
+    elif unit == "d":
+        multiplier = 86400
+    elif unit == "w":
+        multiplier = 604800
+    else:
+        multiplier = 1
+
+    return int(duration if multiplier == 1 else duration[:-1]) * multiplier
+
+
 def _wrap_message(message: str, width: int) -> list[str]:
     return [
         x.strip() for line in message.splitlines() for x in textwrap.wrap(line, width)
@@ -258,4 +286,4 @@ async def _new_transport(
     transport, _ = await loop.create_datagram_endpoint(
         lambda: _Protocol(recv_q, buffer_free), remote_addr=(host, port)
     )
-    return transport
+    return cast(DatagramTransport, transport)  # type: ignore[redundant-cast]
