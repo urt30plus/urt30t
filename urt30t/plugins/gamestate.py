@@ -87,7 +87,7 @@ class Plugin(BotPlugin):
                 pass
             if (
                 team := Team(event.user_data["t"])
-            ) is not player.team and player.team is not Team.UNKNOWN:
+            ) is not player.team and player.team is not Team.SPECTATOR:
                 logger.warning("team change: %s -> %s", player.team, team)
                 # TODO: fire team change event
                 pass

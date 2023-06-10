@@ -21,6 +21,8 @@ RE_PLAYER = re.compile(
     re.IGNORECASE,
 )
 
+_GAME_MAP_UNKNOWN = "unknown"
+
 
 class RconError(Exception):
     pass
@@ -33,7 +35,6 @@ class Cvar(NamedTuple):
 
 
 class Team(enum.Enum):
-    UNKNOWN = "-1"
     FREE = "0"
     RED = "1"
     BLUE = "2"
@@ -41,7 +42,6 @@ class Team(enum.Enum):
 
 
 class GameType(enum.Enum):
-    UNKNOWN = "UNKNOWN"
     FFA = "0"
     LMS = "1"
     TDM = "3"
@@ -62,7 +62,7 @@ class Player:
     name: str
     auth: str | None = None
     guid: str | None = None
-    team: Team = Team.UNKNOWN
+    team: Team = Team.SPECTATOR
     kills: int = 0
     deaths: int = 0
     assists: int = 0
@@ -116,9 +116,9 @@ class Player:
 
 @dataclasses.dataclass
 class Game:
-    map_name: str = "Unknown"
+    map_name: str = _GAME_MAP_UNKNOWN
     player_count: int = 0
-    type: GameType = GameType.UNKNOWN
+    type: GameType = GameType.FFA
     time: str = "0:00"
     warmup: bool = False
     match_mode: bool = False
@@ -200,7 +200,7 @@ class Game:
                 game.map_name = v
                 in_header = True
 
-        if game.map_name == "Unknown":
+        if game.map_name is _GAME_MAP_UNKNOWN:
             raise RconError("map_not_found")
 
         if len(game.players) != game.player_count:

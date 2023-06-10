@@ -1,6 +1,6 @@
-from urt30t import events
+from urt30t import Team, events
 from urt30t.events import LogEvent
-from urt30t.models import BombAction, FlagAction, HitLocation, HitMode, KillMode, Team
+from urt30t.models import BombAction, FlagAction, HitLocation, HitMode, KillMode
 
 
 def test_event_account_kick():

@@ -2,7 +2,8 @@ import dataclasses
 from collections.abc import Awaitable, Callable
 from typing import NamedTuple, Self
 
-from .models import BombAction, FlagAction, HitLocation, HitMode, KillMode, Team
+from . import Team
+from .models import BombAction, FlagAction, HitLocation, HitMode, KillMode
 
 EventHandler = Callable[["GameEvent"], Awaitable[None]]
 

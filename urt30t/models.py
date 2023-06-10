@@ -23,7 +23,6 @@ class TooManyPlayersFoundError(BotError):
 
 
 class Group(enum.IntEnum):
-    UNKNOWN = -1
     GUEST = 1
     USER = 10
     FRIEND = 20
@@ -35,14 +34,6 @@ class MessageType(enum.Enum):
     PRIVATE = 1
     LOUD = 2
     BIG = 3
-
-
-class Team(enum.Enum):
-    UNKNOWN = "-1"
-    FREE = "0"
-    RED = "1"
-    BLUE = "2"
-    SPECTATOR = "3"
 
 
 class BombAction(enum.Enum):
