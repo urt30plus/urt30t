@@ -271,6 +271,7 @@ class Game:
         """
         game = cls()
         in_header = True
+        parse_warnings = []
         for line in data.splitlines():
             k, v = line.split(":", maxsplit=1)
             v = v.strip()
@@ -291,7 +292,9 @@ class Game:
                     game.time = v
                     in_header = False
                 else:
-                    logger.warning("unknown header: %s - %s", k, v)
+                    msg = f"unknown header: {k} - {v}"
+                    logger.warning(msg)
+                    parse_warnings.append(msg)
             elif k.isnumeric():
                 player = Player.from_string(line)
                 game.players[player.slot] = player
@@ -300,8 +303,9 @@ class Game:
                 game.map_name = v
                 in_header = True
 
+        parse_errors = []
         if game.map_name is _GAME_MAP_UNKNOWN:
-            raise RconError("map_not_found")
+            parse_errors.append("Map entry not found in data")
 
         if len(game.players) != game.player_count:
             msg = (
@@ -309,6 +313,14 @@ class Game:
                 f"players {len(game.players)}"
                 f"\n\n{game}"
             )
+            parse_errors.append(msg)
+
+        if parse_warnings:
+            logger.warning("Game parse warnings\n\t%s", "\n\t".join(parse_warnings))
+
+        if parse_errors:
+            msg = "\n".join(parse_errors)
+            msg += "\nData Received:\n\n" + data
             raise RconError(msg)
 
         return game
