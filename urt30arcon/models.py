@@ -292,9 +292,7 @@ class Game:
                     game.time = v
                     in_header = False
                 else:
-                    msg = f"unknown header: {k} - {v}"
-                    logger.warning(msg)
-                    parse_warnings.append(msg)
+                    parse_warnings.append(f"unknown header: {k} - {v}")
             elif k.isnumeric():
                 player = Player.from_string(line)
                 game.players[player.slot] = player
