@@ -290,7 +290,7 @@ class Bot:
                 was_updated = await updater.update()
             except Exception:
                 logger.exception("GameInfo update failed")
-                was_updated = False
+                was_updated = True  # use the shorter delay to retry
 
             await asyncio.sleep(delay if was_updated else delay_no_updates)
 
