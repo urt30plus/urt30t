@@ -44,8 +44,8 @@ class AsyncRconClient:
             return AuthWhois.from_string(data.decode(_ENCODING))
         raise RconError(slot)
 
-    async def ban(self, slot: str) -> None:
-        await self._execute(f"addip {slot}")
+    async def ban(self, ip_address: str) -> None:
+        await self._execute(f"addip {ip_address}")
 
     async def bigtext(self, message: str) -> None:
         await self._send_message(message, kind="bigtext")
@@ -105,7 +105,7 @@ class AsyncRconClient:
 
     async def maps(self) -> list[str]:
         if not (data := await self._execute(b"fdir *.bsp", retry=True)):
-            logger.error("command returned no data")
+            logger.error("maps command returned no data")
             return []
         lines = data.decode(encoding=_ENCODING).splitlines()
         if (
@@ -117,9 +117,11 @@ class AsyncRconClient:
             return []
         return [x.removeprefix("maps/").removesuffix(".bsp") for x in lines[1:-1]]
 
-    async def mute(self, slot: str, duration: str) -> None:
-        seconds = _duration_to_seconds(duration)
-        await self._execute(f"mute {slot} {seconds}")
+    async def mute(self, slot: str, duration: str | None = None) -> None:
+        cmd = f"mute {slot}"
+        if duration is not None:
+            cmd += f" {_duration_to_seconds(duration)}"
+        await self._execute(cmd)
 
     async def nuke(self, slot: str) -> None:
         await self._execute(f"nuke {slot}")
@@ -215,7 +217,7 @@ class AsyncRconClient:
                     data += more_data
 
         if retry and data is None:
-            logger.warning("retrying, no data received for command: %s", cmd)
+            logger.debug("retrying, no data received for command: %s", cmd)
             return await self._execute(cmd, retry=False)
 
         return data
@@ -235,8 +237,8 @@ class AsyncRconClient:
 
     def __repr__(self) -> str:
         return (
-            f"RconClient(host={self._transport.get_extra_info('peername')}, "
-            f"recv_timeout={self._recv_timeout})"
+            f"{self.__class__.__qualname__}("
+            f"host={self.host}, port={self.port}, recv_timeout={self._recv_timeout})"
         )
 
     @classmethod
