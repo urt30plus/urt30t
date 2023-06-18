@@ -200,14 +200,14 @@ class AsyncRconClient:
     async def _execute(self, cmd: str | bytes, *, retry: bool = False) -> bytes | None:
         if isinstance(cmd, str):
             cmd = cmd.encode(encoding=_ENCODING)
-        cmd = b'%srcon "%s" %s\n' % (_CMD_PREFIX, self._password, cmd)
+        rcon_cmd = b'%srcon "%s" %s\n' % (_CMD_PREFIX, self._password, cmd)
         async with self._lock:
             # handle reconnects on case of errors or lost connections
             if self._transport.is_closing():
                 self._transport = await _new_transport(
                     self.host, self.port, self._recv_q, self._buffer_free
                 )
-            self._transport.sendto(cmd)
+            self._transport.sendto(rcon_cmd)
             await self._buffer_free.wait()
             data = await self._recv()
             if data is not None:
@@ -215,7 +215,7 @@ class AsyncRconClient:
                     data += more_data
 
         if retry and data is None:
-            logger.warning("retrying, no data received")
+            logger.warning("retrying, no data received for command: %s", cmd)
             return await self._execute(cmd, retry=False)
 
         return data
