@@ -215,6 +215,7 @@ class AsyncRconClient:
                     data += more_data
 
         if retry and data is None:
+            logger.warning("retrying, no data received")
             return await self._execute(cmd, retry=False)
 
         return data
