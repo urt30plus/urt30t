@@ -77,7 +77,8 @@ class DiscordClient(discord.Client):
 
     def __repr__(self) -> str:
         return (
-            f"DiscordAPIClient(bot_user={self.bot_user!r}, server={self.server_name!r})"
+            f"{self.__class__.__qualname__}("
+            f"bot_user={self.bot_user!r}, server={self.server_name!r})"
         )
 
 
@@ -139,6 +140,6 @@ class DiscordEmbedUpdater(abc.ABC):
 
     def __repr__(self) -> str:
         return (
-            f"DiscordEmbedUpdater(channel_name={self.channel_name!r}, "
+            f"{self.__class__.__qualname__}(channel_name={self.channel_name!r}, "
             f"embed_title={self.embed_title!r})"
         )
