@@ -32,7 +32,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
     async def update(self) -> bool:
         message, game = await asyncio.gather(
             self.fetch_embed_message(),
-            self.rcon_client.game_info(),
+            self.fetch_game_info(),
         )
 
         if message and same_map_and_specs(game, self._last_game):
@@ -45,6 +45,15 @@ class GameInfoUpdater(DiscordEmbedUpdater):
 
         self._last_game = game
         return result
+
+    async def fetch_game_info(self) -> Game | None:
+        try:
+            return await self.rcon_client.game_info()
+        except LookupError:
+            return None
+        except Exception:
+            logger.exception("Failed to fetch game info")
+            return None
 
     def should_update_embed(
         self, message: discord.Message, embed: discord.Embed
