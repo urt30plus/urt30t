@@ -1,9 +1,8 @@
 import dataclasses
 import enum
-import functools
 import logging
 import re
-from typing import Any, NamedTuple, Self
+from typing import NamedTuple, Self
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +154,6 @@ class GameType(enum.Enum):
     GUNGAME = "11"
 
 
-@functools.total_ordering
 @dataclasses.dataclass
 class Player:
     slot: str
@@ -172,17 +170,6 @@ class Player:
     @property
     def clean_name(self) -> str:
         return RE_COLOR.sub("", self.name)
-
-    def __lt__(self, other: Any) -> bool:
-        if not isinstance(other, Player):
-            return NotImplemented
-        # noinspection PyTypeChecker
-        return (self.kills, self.deaths * -1, self.assists, self.name) < (
-            other.kills,
-            other.deaths * -1,
-            other.assists,
-            other.name,
-        )
 
     @classmethod
     def from_string(cls, data: str) -> Self:
