@@ -66,7 +66,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
 
 def format_player(p: Player) -> str:
     ping = f"{p.ping:3}ms" if p.ping > 0 else ""
-    return f"{p.name[:24]:24} [{p.kills:3}/{p.deaths:2}/{p.assists:2}] {ping}"
+    return f"{p.clean_name[:24]:24} [{p.kills:3}/{p.deaths:2}/{p.assists:2}] {ping}"
 
 
 def player_score_display(players: list[Player]) -> str | None:
@@ -94,7 +94,7 @@ def add_player_fields(embed: discord.Embed, server: Game) -> None:
         embed.add_field(name="Players", value=team_free, inline=False)
 
     if server.spectators:
-        specs = "```\n" + "\n".join(p.name for p in server.spectators) + "\n```"
+        specs = "```\n" + "\n".join(p.clean_name for p in server.spectators) + "\n```"
         embed.add_field(name="Spectators", value=specs, inline=False)
 
 
