@@ -1,5 +1,6 @@
 import logging
 
+from urt30arcon import Game
 from urt30t import (
     BotPlugin,
     GameType,
@@ -15,43 +16,32 @@ logger = logging.getLogger(__name__)
 class Plugin(BotPlugin):
     @bot_subscribe
     async def on_init_game(self, event: events.InitGame) -> None:
-        logger.debug(event)
-        game = self.bot.game
-        data = event.game_data
-        game.type = GameType(data["g_gametype"])
-        game.time = event.game_time
-        game.scores = None
-        game.map_name = data["mapname"]
-        game.match_mode = data.get("g_matchmode", "0") != "0"
-
-    @bot_subscribe
-    async def on_init_auth(self, event: events.InitAuth) -> None:
-        logger.debug(event)
+        self.bot.game = Game(
+            map_name=event.game_data["mapname"],
+            type=GameType(event.game_data["g_gametype"]),
+            match_mode=event.game_data.get("g_matchmode", "0") != "0",
+        )
 
     @bot_subscribe
     async def on_warmup(self, event: events.Warmup) -> None:
-        logger.debug(event)
-        self.bot.game.warmup = True
+        self.bot.game.warmup = event is not None
 
     @bot_subscribe
     async def on_init_round(self, event: events.InitRound) -> None:
-        logger.debug(event)
-        # TODO: assert or check that previous state was Warmup?
-        self.bot.game.warmup = False
+        self.bot.game.warmup = event is None
 
     @bot_subscribe
     async def on_client_connect(self, event: events.ClientConnect) -> None:
-        logger.debug(event)
         if player := self.bot.player(event.slot):
             logger.warning("existing player found in slot: %r", player)
 
     @bot_subscribe
     async def on_client_user_info(self, event: events.ClientUserInfo) -> None:
-        logger.debug(event)
-        guid = event.user_data["cl_guid"]
-        auth = event.user_data.get("authl")
-        name = event.user_data["name"]
-        ip_addr, _, _ = event.user_data["ip"].partition(":")
+        data = event.user_data
+        guid = data["cl_guid"]
+        auth = data.get("authl")
+        name = data["name"]
+        ip_addr, _, _ = data["ip"].partition(":")
         if (player := self.bot.player(event.slot)) and player.guid == guid:
             if player.auth != auth:
                 logger.warning("auth mismatch: %s -> %s", player.auth, auth)
@@ -81,8 +71,7 @@ class Plugin(BotPlugin):
     async def on_client_user_info_changed(
         self, event: events.ClientUserinfoChanged
     ) -> None:
-        logger.debug(event)
-        # TODO: do we care about funstuff, armban colors and model selection?
+        # TODO: do we care about fun stuff, arm ban colors and model selection?
         if player := self.bot.player(event.slot):
             name = event.user_data["n"].removesuffix("^7")
             if name != player.name:
@@ -100,13 +89,11 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_account_validated(self, event: events.AccountValidated) -> None:
-        logger.debug(event)
         if (player := self.bot.player(event.slot)) and player.auth != event.auth:
-            logger.warning("%s != %s", player.auth, event.auth)
+            logger.warning("auth mismatch: %s != %s", player.auth, event.auth)
 
     @bot_subscribe
     async def on_client_begin(self, event: events.ClientBegin) -> None:
-        logger.debug(event)
         await self.bot.sync_player(event.slot)
 
     @bot_subscribe
@@ -115,7 +102,6 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_client_disconnect(self, event: events.ClientDisconnect) -> None:
-        logger.debug(event)
         await self.bot.disconnect_player(event.slot)
 
     @bot_subscribe
