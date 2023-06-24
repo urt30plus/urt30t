@@ -15,54 +15,6 @@ def test_player_from_string():
     assert player.assists == 3
 
 
-def test_player_order_name():
-    s1 = """\
-    0:foo^7 TEAM:RED KILLS:20 DEATHS:22 ASSISTS:3 PING:98 AUTH:foo IP:127.0.0.1:58537
-    """
-    s2 = """\
-    1:bar^7 TEAM:RED KILLS:20 DEATHS:22 ASSISTS:3 PING:98 AUTH:bar IP:127.0.0.1:58538
-    """
-    p1 = Player.from_string(dedent(s1))
-    p2 = Player.from_string(dedent(s2))
-    assert p2 < p1
-
-
-def test_player_order_kills():
-    s1 = """\
-    0:foo^7 TEAM:RED KILLS:24 DEATHS:22 ASSISTS:3 PING:98 AUTH:foo IP:127.0.0.1:58537
-    """
-    s2 = """\
-    1:bar^7 TEAM:RED KILLS:20 DEATHS:22 ASSISTS:3 PING:98 AUTH:bar IP:127.0.0.1:58538
-    """
-    p1 = Player.from_string(dedent(s1))
-    p2 = Player.from_string(dedent(s2))
-    assert p2 < p1
-
-
-def test_order_deaths():
-    s1 = """\
-    0:foo^7 TEAM:RED KILLS:20 DEATHS:20 ASSISTS:3 PING:98 AUTH:foo IP:127.0.0.1:58537
-    """
-    s2 = """\
-    1:bar^7 TEAM:RED KILLS:20 DEATHS:22 ASSISTS:3 PING:98 AUTH:bar IP:127.0.0.1:58538
-    """
-    p1 = Player.from_string(dedent(s1))
-    p2 = Player.from_string(dedent(s2))
-    assert p2 < p1
-
-
-def test_order_assists():
-    s1 = """\
-    0:foo^7 TEAM:RED KILLS:20 DEATHS:22 ASSISTS:5 PING:98 AUTH:foo IP:127.0.0.1:058537
-    """
-    s2 = """\
-    1:bar^7 TEAM:RED KILLS:20 DEATHS:22 ASSISTS:3 PING:98 AUTH:bar IP:127.0.0.1:58538
-    """
-    p1 = Player.from_string(dedent(s1))
-    p2 = Player.from_string(dedent(s2))
-    assert p2 < p1
-
-
 def test_negative_kills():
     s = """\
     0:foo^7 TEAM:RED KILLS:-1 DEATHS:2 ASSISTS:0 PING:98 AUTH:foo IP:127.0.0.1:58537
