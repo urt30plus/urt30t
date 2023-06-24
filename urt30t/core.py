@@ -375,7 +375,7 @@ def bot_command(
             if p.kind not in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY):
                 msg = (
                     f"Command handler [{handler_name}],"
-                    f" *args, **kwargs and keyword only parameters are not supported."
+                    " *args, **kwargs and keyword only parameters are not supported."
                     f" got {p.kind}."
                 )
                 raise TypeError(msg)

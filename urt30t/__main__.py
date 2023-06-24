@@ -19,7 +19,8 @@ if __name__ == "__main__":
         with contextlib.suppress(KeyboardInterrupt):
             asyncio.run(async_main())
     else:
-        with contextlib.suppress(KeyboardInterrupt), asyncio.Runner(
-            loop_factory=uvloop.new_event_loop
-        ) as runner:
+        with (
+            contextlib.suppress(KeyboardInterrupt),
+            asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner,
+        ):
             runner.run(async_main())
