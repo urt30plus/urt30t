@@ -169,10 +169,10 @@ class Bot:
             )
             await self._discord.login(self._conf.discord.token)
             self._run_background_task(
-                self._discord_update_gameinfo(self._discord, self._conf.discord)
+                self._discord_update_mapcycle(self._discord, self._conf.discord)
             )
             self._run_background_task(
-                self._discord_update_mapcycle(self._discord, self._conf.discord)
+                self._discord_update_gameinfo(self._discord, self._conf.discord)
             )
         else:
             logger.warning("Discord Updates are not enabled")
@@ -285,6 +285,8 @@ class Bot:
             delay_no_updates,
             timeout,
         )
+        # delay on first start to allow mapcycle time to complete first
+        await asyncio.sleep(15.0)
         while True:
             try:
                 was_updated = await updater.update()
