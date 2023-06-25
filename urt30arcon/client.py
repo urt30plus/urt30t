@@ -75,6 +75,26 @@ class AsyncRconClient:
     async def cycle_map(self) -> None:
         await self._execute(b"cyclemap")
 
+    async def dumpuser(self, slot: str) -> dict[str, str] | None:
+        """
+        /rcon dumpuser 0
+        userinfo
+        --------
+        ip                  127.0.0.1:27961
+        name                |30+|money
+        authl               m0neysh0t
+        cl_guid             E9A98F42280E5C2F072804F74029A050
+        """
+        cmd = f"dumpuser {slot}"
+        if not (data := await self._execute(cmd)):
+            return None
+        userinfo = data.decode(_ENCODING)
+        if not userinfo.startswith("userinfo"):
+            raise RconError(cmd, userinfo)
+        return {
+            line[:20].strip(): line[20:].strip() for line in userinfo.splitlines()[2:]
+        }
+
     async def force(self, slot: str, team: str) -> None:
         if (target := team.lower()) not in _TEAM_NAMES:
             raise ValueError(team)
