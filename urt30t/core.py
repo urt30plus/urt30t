@@ -111,13 +111,18 @@ class Bot:
         await asyncio.gather(
             *[self.sync_player(p.slot) for p in self.game.players.values()]
         )
+        for p in self.game.players.values():
+            p.kills = p.deaths = p.assists = 0
         logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, self.game)
 
     async def sync_player(self, slot: str) -> Player:
         if not (player := self.player(slot)):
             raise RuntimeError(slot)
+        if not player.guid and (userinfo := await self.rcon.dumpuser(slot)):
+            player.guid = userinfo["cl_guid"]
         # TODO: load/save info from/to db
         # TODO: check for bans
+        logger.debug(player)
         return player
 
     def player(self, slot: str) -> Player | None:
