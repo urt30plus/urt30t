@@ -204,7 +204,6 @@ class Player:
 @dataclasses.dataclass
 class Game:
     map_name: str = _GAME_MAP_UNKNOWN
-    player_count: int = 0
     type: GameType = GameType.FFA
     time: str = "0:00"
     warmup: bool = False
@@ -259,6 +258,7 @@ class Game:
         game = cls()
         in_header = True
         parse_warnings = []
+        player_count = 0
         for line in data.splitlines():
             k, v = line.split(":", maxsplit=1)
             v = v.strip()
@@ -266,7 +266,7 @@ class Game:
                 if k == "Map":
                     game.map_name = v
                 elif k == "Players":
-                    game.player_count = int(v)
+                    player_count = int(v)
                 elif k == "GameType":
                     game.type = GameType[v]
                 elif k == "Scores":
@@ -292,9 +292,9 @@ class Game:
         if game.map_name is _GAME_MAP_UNKNOWN:
             parse_errors.append("Map entry not found in data")
 
-        if len(game.players) != game.player_count:
+        if player_count != len(game.players):
             msg = (
-                f"Player count {game.player_count} does not match "
+                f"Player count {player_count} does not match "
                 f"players {len(game.players)}"
                 f"\n\n{game}"
             )

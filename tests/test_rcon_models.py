@@ -42,7 +42,6 @@ def test_game_from_string_ctf():
     """
     game = Game.from_string(dedent(s))
     assert game.map_name == "ut4_abbey"
-    assert game.player_count == 3
     assert game.type is GameType.CTF
     assert game.score_red == "5"
     assert game.score_blue == "10"
@@ -64,7 +63,6 @@ def test_from_string_ffa():
     """
     game = Game.from_string(dedent(s))
     assert game.map_name == "ut4_docks"
-    assert game.player_count == 3
     assert game.type is GameType.FFA
     assert game.score_red is None
     assert game.score_blue is None

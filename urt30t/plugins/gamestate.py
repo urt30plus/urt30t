@@ -1,8 +1,8 @@
 import logging
 
-from urt30arcon import Game
 from urt30t import (
     BotPlugin,
+    Game,
     GameType,
     Player,
     Team,
