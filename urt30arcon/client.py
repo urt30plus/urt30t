@@ -90,7 +90,8 @@ class AsyncRconClient:
             return None
         userinfo = data.decode(_ENCODING)
         if not userinfo.startswith("userinfo"):
-            raise RconError(cmd, userinfo)
+            logger.warning("%s: %s", cmd, userinfo)
+            return None
         return {
             line[:20].strip(): line[20:].strip() for line in userinfo.splitlines()[2:]
         }
