@@ -158,8 +158,8 @@ class GameType(enum.Enum):
 class Player:
     slot: str
     name: str
-    auth: str | None = None
-    guid: str | None = None
+    auth: str = ""
+    guid: str = ""
     team: Team = Team.SPECTATOR
     kills: int = 0
     deaths: int = 0
