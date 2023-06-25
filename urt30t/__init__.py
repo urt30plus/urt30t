@@ -1,7 +1,7 @@
 """
 Urban Terror |30+| Game/Discord Bot
 """
-from urt30arcon import Game, GameType, Player, Team
+from urt30arcon import GameType, Team
 
 from .core import (
     bot_command,
@@ -13,8 +13,10 @@ from .models import (
     BotError,
     BotPlugin,
     CommandHandler,
+    Game,
     Group,
     MessageType,
+    Player,
 )
 from .version import __version__
 

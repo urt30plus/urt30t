@@ -210,7 +210,7 @@ class Game:
     match_mode: bool = False
     score_red: int = 0
     score_blue: int = 0
-    players: dict[str, Player] = dataclasses.field(default_factory=dict)
+    players: list[Player] = dataclasses.field(default_factory=list)
 
     @property
     def spectators(self) -> list[Player]:
@@ -229,7 +229,7 @@ class Game:
         return self._get_players_by_team(Team.BLUE)
 
     def _get_players_by_team(self, team: Team) -> list[Player]:
-        return [p for p in self.players.values() if p.team is team]
+        return [p for p in self.players if p.team is team]
 
     @classmethod
     def from_string(cls, data: str) -> Self:  # noqa: PLR0912
@@ -272,7 +272,7 @@ class Game:
                     parse_warnings.append(f"unknown header: {k} - {v}")
             elif k.isnumeric():
                 player = Player.from_string(line)
-                game.players[player.slot] = player
+                game.players.append(player)
             elif k == "Map":
                 # back-to-back messages, start over
                 game.map_name = v

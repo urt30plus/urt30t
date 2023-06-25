@@ -16,19 +16,23 @@ logger = logging.getLogger(__name__)
 class Plugin(BotPlugin):
     @bot_subscribe
     async def on_init_game(self, event: events.InitGame) -> None:
+        # TODO: save N number of previous Game states?
         self.bot.game = Game(
             map_name=event.game_data["mapname"],
             type=GameType(event.game_data["g_gametype"]),
+            warmup=True,
             match_mode=event.game_data.get("g_matchmode", "0") != "0",
         )
 
     @bot_subscribe
     async def on_warmup(self, event: events.Warmup) -> None:
-        self.bot.game.warmup = event is not None
+        if not self.bot.game.warmup:
+            self.bot.game.warmup = event is not None
 
     @bot_subscribe
     async def on_init_round(self, event: events.InitRound) -> None:
-        self.bot.game.warmup = event is None
+        if self.bot.game.warmup:
+            self.bot.game.warmup = event is None
 
     @bot_subscribe
     async def on_client_connect(self, event: events.ClientConnect) -> None:
@@ -46,9 +50,9 @@ class Plugin(BotPlugin):
             if player.auth != auth:
                 logger.warning("auth mismatch: %s -> %s", player.auth, auth)
                 player.auth = auth
-            if player.name != name:
-                logger.warning("name mismatch: %s -> %s", player.name, name)
-                player.name = name
+            if player.name_exact != name:
+                logger.warning("name mismatch: %s -> %s", player.name_exact, name)
+                player.update_name(name)
             if player.ip_address != ip_addr:
                 logger.warning(
                     "ip address mismatch: %s -> %s", player.ip_address, ip_addr
@@ -74,8 +78,8 @@ class Plugin(BotPlugin):
         # TODO: do we care about fun stuff, arm ban colors and model selection?
         if player := self.bot.player(event.slot):
             name = event.user_data["n"].removesuffix("^7")
-            if name != player.name:
-                logger.warning("name change: %s -> %s", player.name, name)
+            if name != player.name_exact:
+                logger.warning("name change: %s -> %s", player.name_exact, name)
                 # TODO: fire name change event
                 pass
             if (
@@ -84,8 +88,8 @@ class Plugin(BotPlugin):
                 logger.warning("team change: %s -> %s", player.team, team)
                 # TODO: fire team change event
                 pass
-            player.name = name
-            player.team = team
+            player.update_name(name)
+            player.update_team(team)
 
     @bot_subscribe
     async def on_account_validated(self, event: events.AccountValidated) -> None:

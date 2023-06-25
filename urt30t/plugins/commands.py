@@ -88,8 +88,8 @@ class Plugin(BotPlugin):
         """
         player = self.get_player(pid)
         gameinfo = await self.bot.rcon.game_info()
-        for slot, p in gameinfo.players.items():
-            if slot == player.slot and p.ping >= 500:
+        for p in gameinfo.players:
+            if p.slot == player.slot and p.ping >= 500:
                 # TODO: fix
                 await cmd.message("yep, ci")
                 return

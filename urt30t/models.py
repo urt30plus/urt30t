@@ -1,12 +1,19 @@
 import abc
 import dataclasses
 import enum
+import re
 from collections.abc import Awaitable, Callable
 from typing import NamedTuple, Protocol
 
-from urt30arcon import AsyncRconClient, Game, Player
+from urt30arcon import (
+    AsyncRconClient,
+    GameType,
+    Team,
+)
 
 CommandHandler = Callable[["BotCommand"], Awaitable[None]]
+
+RE_COLOR = re.compile(r"(\^\d)")
 
 
 class BotError(Exception):
@@ -138,6 +145,62 @@ class KillMode(enum.Enum):
     GOOMBA = "48"
 
 
+@dataclasses.dataclass
+class Player:
+    slot: str
+    name: str
+    name_exact: str = ""
+    auth: str = ""
+    guid: str = ""
+    team: Team = Team.SPECTATOR
+    kills: int = 0
+    deaths: int = 0
+    assists: int = 0
+    ip_address: str | None = None
+
+    def update_name(self, name: str) -> None:
+        clean_name = RE_COLOR.sub("", name)
+        self.name_exact = name
+        self.name = clean_name
+
+    def update_team(self, team: Team) -> None:
+        self.team = team
+
+    def __post_init__(self) -> None:
+        if not self.name_exact:
+            self.update_name(self.name)
+
+
+@dataclasses.dataclass
+class Game:
+    map_name: str = ""
+    type: GameType = GameType.FFA
+    warmup: bool = False
+    match_mode: bool = False
+    score_red: int = 0
+    score_blue: int = 0
+    players: dict[str, Player] = dataclasses.field(default_factory=dict)
+
+    @property
+    def spectators(self) -> list[Player]:
+        return self._get_team(Team.SPECTATOR)
+
+    @property
+    def team_free(self) -> list[Player]:
+        return self._get_team(Team.FREE)
+
+    @property
+    def team_red(self) -> list[Player]:
+        return self._get_team(Team.RED)
+
+    @property
+    def team_blue(self) -> list[Player]:
+        return self._get_team(Team.BLUE)
+
+    def _get_team(self, team: Team) -> list[Player]:
+        return [p for p in self.players.values() if p.team is team]
+
+
 class BotCommandConfig(NamedTuple):
     handler: CommandHandler
     name: str
@@ -224,6 +287,7 @@ class BotCommand:
     args: list[str] = dataclasses.field(default_factory=list)
 
     def player_group(self) -> Group:
+        assert self
         # TODO: lookup the player's actual Group
         return Group.GUEST
 

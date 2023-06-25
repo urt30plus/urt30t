@@ -14,7 +14,7 @@ from typing import Any, TypeVar, cast
 import aiofiles
 import aiofiles.os
 
-from urt30arcon import AsyncRconClient, Game, Player
+from urt30arcon import AsyncRconClient
 
 from . import (
     discord30,
@@ -27,7 +27,9 @@ from .models import (
     BotCommandConfig,
     BotError,
     BotPlugin,
+    Game,
     Group,
+    Player,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,12 +109,30 @@ class Bot:
 
     async def sync_game(self) -> None:
         old_game = self.game
-        self.game = await self.rcon.game_info()
-        await asyncio.gather(
-            *[self.sync_player(p.slot) for p in self.game.players.values()]
+        rcon_game = await self.rcon.game_info()
+        new_players = {
+            p.slot: Player(
+                slot=p.slot,
+                name=p.clean_name,
+                name_exact=p.name,
+                auth=p.auth,
+                guid=p.guid,
+                team=p.team,
+                # don't carry over kda, we'll track ourselves
+                ip_address=p.ip_address,
+            )
+            for p in rcon_game.players
+        }
+        self.game = new_game = Game(
+            map_name=rcon_game.map_name,
+            type=rcon_game.type,
+            warmup=rcon_game.warmup,
+            match_mode=rcon_game.match_mode,
+            score_red=rcon_game.score_red,
+            score_blue=rcon_game.score_blue,
+            players=new_players,
         )
-        for p in self.game.players.values():
-            p.kills = p.deaths = p.assists = 0
+        await asyncio.gather(*[self.sync_player(slot) for slot in new_game.players])
         logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, self.game)
 
     async def sync_player(self, slot: str) -> Player:
@@ -136,7 +156,7 @@ class Bot:
         return [
             p
             for p in self.game.players.values()
-            if needle in p.clean_name or needle == p.auth
+            if needle in p.name or needle == p.auth
         ]
 
     async def search_players(self, s: str, /) -> list[Player]:
