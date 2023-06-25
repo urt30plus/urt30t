@@ -39,7 +39,7 @@ class Plugin(BotPlugin):
     async def on_client_user_info(self, event: events.ClientUserInfo) -> None:
         data = event.user_data
         guid = data["cl_guid"]
-        auth = data.get("authl")
+        auth = data.get("authl", "")
         name = data["name"]
         ip_addr, _, _ = data["ip"].partition(":")
         if (player := self.bot.player(event.slot)) and player.guid == guid:
