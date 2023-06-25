@@ -208,16 +208,9 @@ class Game:
     time: str = "0:00"
     warmup: bool = False
     match_mode: bool = False
-    scores: str | None = None
+    score_red: int = 0
+    score_blue: int = 0
     players: dict[str, Player] = dataclasses.field(default_factory=dict)
-
-    @property
-    def score_red(self) -> str | None:
-        return self._get_score_by_team(Team.RED)
-
-    @property
-    def score_blue(self) -> str | None:
-        return self._get_score_by_team(Team.BLUE)
 
     @property
     def spectators(self) -> list[Player]:
@@ -237,11 +230,6 @@ class Game:
 
     def _get_players_by_team(self, team: Team) -> list[Player]:
         return [p for p in self.players.values() if p.team is team]
-
-    def _get_score_by_team(self, team: Team) -> str | None:
-        if self.scores and (m := RE_SCORES.match(self.scores)):
-            return m[team.name]
-        return None
 
     @classmethod
     def from_string(cls, data: str) -> Self:  # noqa: PLR0912
@@ -270,7 +258,9 @@ class Game:
                 elif k == "GameType":
                     game.type = GameType[v]
                 elif k == "Scores":
-                    game.scores = v
+                    if m := RE_SCORES.match(v):
+                        game.score_red = int(m["RED"])
+                        game.score_blue = int(m["BLUE"])
                 elif k == "MatchMode":
                     game.match_mode = v != "OFF"
                 elif k == "WarmupPhase":
