@@ -25,14 +25,12 @@ class Plugin(BotPlugin):
         )
 
     @bot_subscribe
-    async def on_warmup(self, event: events.Warmup) -> None:
-        if not self.bot.game.warmup:
-            self.bot.game.warmup = event is not None
+    async def on_warmup(self, _: events.Warmup) -> None:
+        self.bot.game.warmup = True
 
     @bot_subscribe
-    async def on_init_round(self, event: events.InitRound) -> None:
-        if self.bot.game.warmup:
-            self.bot.game.warmup = event is None
+    async def on_init_round(self, _: events.InitRound) -> None:
+        self.bot.game.warmup = False
 
     @bot_subscribe
     async def on_client_connect(self, event: events.ClientConnect) -> None:
@@ -102,12 +100,35 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
-        logger.debug(event)
+        if player := self.bot.player(event.slot):
+            player.alive_timer.start()
 
     @bot_subscribe
     async def on_client_disconnect(self, event: events.ClientDisconnect) -> None:
         await self.bot.disconnect_player(event.slot)
 
     @bot_subscribe
-    async def on_shutdown_game(self, event: events.ShutdownGame) -> None:
-        logger.debug(event)
+    async def on_shutdown_game(self, _: events.ShutdownGame) -> None:
+        players = [(p.calc_xp(), p) for p in self.bot.game.players.values()]
+        players.sort(reverse=True)
+        logger.debug(
+            "Players by XP:\n\t%s", "\n\t".join(f"{xp}: {p}" for xp, p in players)
+        )
+
+    @bot_subscribe
+    async def on_kill(self, event: events.Kill) -> None:
+        if victim := self.bot.player(event.victim):
+            victim.deaths += 1
+            victim.alive_timer.stop()
+            if player := self.bot.player(event.slot):
+                if player.team is not victim.team:
+                    player.kills += 1
+                else:
+                    # TODO: handle suicide?
+                    # TODO: handle tk?
+                    pass
+
+    @bot_subscribe
+    async def on_assist(self, event: events.Assist) -> None:
+        if player := self.bot.player(event.slot):
+            player.assists += 1

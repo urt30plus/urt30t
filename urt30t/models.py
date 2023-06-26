@@ -2,6 +2,7 @@ import abc
 import dataclasses
 import enum
 import re
+import time
 from collections.abc import Awaitable, Callable
 from typing import NamedTuple, Protocol
 
@@ -27,6 +28,28 @@ class PlayerNotFoundError(BotError):
 class TooManyPlayersFoundError(BotError):
     def __init__(self, players: list["Player"]) -> None:
         self.players = players
+
+
+class Timer:
+    def __init__(self) -> None:
+        self._mark = 0.0
+        self._elapsed = 0.0
+
+    def start(self) -> None:
+        if not self._mark == 0.0:
+            raise RuntimeError(self._mark)
+        self._mark = time.time()
+
+    def stop(self) -> None:
+        if (mark := self._mark) == 0.0:
+            raise RuntimeError(mark)
+        self._mark = 0.0
+        self._elapsed += time.time() - mark
+
+    def elapsed(self) -> float:
+        if mark := self._mark:
+            return self._elapsed + (time.time() - mark)
+        return self._elapsed
 
 
 class Group(enum.IntEnum):
@@ -157,6 +180,14 @@ class Player:
     deaths: int = 0
     assists: int = 0
     ip_address: str | None = None
+
+    alive_timer: Timer = dataclasses.field(default_factory=Timer)
+
+    def calc_xp(self) -> float:
+        if play_time := self.alive_timer.elapsed():
+            points = self.kills + (self.assists * 0.25)
+            return points / play_time
+        return 0.0
 
     def update_name(self, name: str) -> None:
         clean_name = RE_COLOR.sub("", name)
