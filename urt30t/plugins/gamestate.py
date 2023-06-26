@@ -2,6 +2,7 @@ import logging
 
 from urt30t import (
     BotPlugin,
+    FlagAction,
     Game,
     GameType,
     Player,
@@ -117,12 +118,19 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_kill(self, event: events.Kill) -> None:
+        if self.bot.game.warmup:
+            return
         if victim := self.bot.player(event.victim):
             victim.deaths += 1
             victim.alive_timer.stop()
             if player := self.bot.player(event.slot):
                 if player.team is not victim.team:
                     player.kills += 1
+                    if self.bot.game.type is GameType.TDM:
+                        if player.team is Team.RED:
+                            self.bot.game.score_red += 1
+                        else:
+                            self.bot.game.score_blue += 1
                 else:
                     # TODO: handle suicide?
                     # TODO: handle tk?
@@ -130,5 +138,22 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_assist(self, event: events.Assist) -> None:
+        if self.bot.game.warmup:
+            return
         if player := self.bot.player(event.slot):
             player.assists += 1
+
+    @bot_subscribe
+    async def on_flag_captured(self, event: events.Flag) -> None:
+        if event.action is FlagAction.CAPTURED:
+            if event.team is Team.RED:
+                self.bot.game.score_red += 1
+            else:
+                self.bot.game.score_blue += 1
+
+    @bot_subscribe
+    async def on_survivor_winner(self, event: events.SurvivorWinner) -> None:
+        if event.team is Team.RED:
+            self.bot.game.score_red += 1
+        else:
+            self.bot.game.score_blue += 1
