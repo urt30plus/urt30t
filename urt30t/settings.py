@@ -4,19 +4,24 @@ Bot settings and configuration.
 import logging
 import zoneinfo
 from pathlib import Path
+from typing import Self
 
-from pydantic import BaseSettings, Required, root_validator, validator
+import dotenv
+from pydantic import FieldValidationInfo, field_validator, model_validator
+from pydantic_settings import BaseSettings
+
+dotenv.load_dotenv()
 
 BASE_PATH = Path(__file__).parent.parent
 
 
 class SharedSettings(BaseSettings):
-    class Config:
-        frozen = True
-        env_file = BASE_PATH / ".env"
+    model_config = {"frozen": True}
 
 
-class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
+class LogSettings(SharedSettings):
+    model_config = {"env_prefix": "URT30T_LOG_"}
+
     level_root: str = "WARNING"
     level_discord: str = "WARNING"
     level_core: str = "INFO"
@@ -40,79 +45,85 @@ logging.getLogger("urt30t.plugins").setLevel(log.level_plugins)
 logger = logging.getLogger(__name__)
 
 
-class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
+class FeatureSettings(SharedSettings):
+    model_config = {"env_prefix": "URT30T_FEATURE_"}
+
     log_parsing: bool = True
     event_dispatch: bool = True
     command_dispatch: bool = True
     discord_updates: bool = True
 
-    @validator("event_dispatch", always=True)
+    @field_validator("event_dispatch", mode="before")
     def validate_event_dispatch(
         cls,
         v: bool,  # noqa: FBT001
-        values: dict[str, bool],
+        info: FieldValidationInfo,
     ) -> bool:
-        if v and not values.get("log_parsing"):
+        if v and not info.data.get("log_parsing"):
             logger.warning(
                 "Event Dispatch is disabled because Log Parsing is not enabled"
             )
             return False
         return v
 
-    @validator("command_dispatch", always=True)
+    @field_validator("command_dispatch", mode="before")
     def validate_command_dispatch(
-        cls, v: bool, values: dict[str, bool]  # noqa: FBT001
+        cls, v: bool, info: FieldValidationInfo  # noqa: FBT001
     ) -> bool:
-        if v and not values.get("event_dispatch"):
+        if v and not info.data.get("event_dispatch"):
             logger.warning(
                 "Command Dispatch is disabled because Event Dispatch is not enabled"
             )
             return False
         return v
 
-    @root_validator
-    def validate_discord_updates(cls, values: dict[str, bool]) -> dict[str, bool]:
+    @model_validator(mode="after")  # type: ignore[arg-type]
+    def _validate_model(cls, self: Self) -> Self:
         if not any(
             (
-                values.get("log_parsing"),
-                values.get("event_dispatch"),
-                values.get("command_dispatch"),
-                values.get("discord_updates"),
+                self.log_parsing,
+                self.event_dispatch,
+                self.command_dispatch,
+                self.discord_updates,
             )
         ):
             msg = "At least one feature must be enabled"
             raise ValueError(msg)
-        return values
+        return self
 
 
-class DiscordSettings(SharedSettings, env_prefix="URT30T_DISCORD_"):
-    user: str = Required
-    token: str = Required
-    server_name: str = Required
+class DiscordSettings(SharedSettings):
+    model_config = {"env_prefix": "URT30T_DISCORD_"}
 
-    updates_channel_name: str = Required
+    user: str
+    token: str
+    server_name: str
+
+    updates_channel_name: str
 
     gameinfo_updates_enabled: bool = True
-    gameinfo_embed_title: str = Required
+    gameinfo_embed_title: str
     gameinfo_update_delay: float = 5.0
     gameinfo_update_delay_no_updates: float = 60.0
     gameinfo_update_timeout: float = 5.0
 
     mapcycle_updates_enabled: bool = True
-    mapcycle_embed_title: str = Required
+    mapcycle_embed_title: str
     mapcycle_update_delay: float = 3600.0
     mapcycle_update_timeout: float = 30.0
     mapcycle_file: Path | None = None
 
 
-class BotSettings(SharedSettings, env_prefix="URT30T_"):
+class BotSettings(SharedSettings):
+    model_config = {"env_prefix": "URT30T_"}
+
     name: str = "30+Bot"
     message_prefix: str = "^0(^230+Bot^0)^7:"
     time_format: str = "%I:%M%p %Z %m/%d/%y"
     time_zone: zoneinfo.ZoneInfo = zoneinfo.ZoneInfo("UTC")
-    games_log: Path = Required
+    games_log: Path
     # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
-    db_url: str = Required
+    db_url: str
     event_queue_max_size: int = 100
     command_prefix: str = "$"
     plugins: list[str] = []
@@ -123,29 +134,31 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
 
     discord: DiscordSettings | None = None
 
-    @validator("discord", always=True)
+    @field_validator("discord", mode="before")
     def _discord_settings(cls, v: DiscordSettings | None) -> DiscordSettings | None:
         if v is None:
             try:
-                v = DiscordSettings()
+                v = DiscordSettings()  # type: ignore[call-arg]
             except ValueError:
                 logger.exception("Failed to load Discord Settings")
         return v
 
-    @validator("time_zone", pre=True)
+    @field_validator("time_zone", mode="before")
     def _time_zone_validate(cls, v: str | zoneinfo.ZoneInfo) -> zoneinfo.ZoneInfo:
         if isinstance(v, zoneinfo.ZoneInfo):
             return v
         return zoneinfo.ZoneInfo(v)
 
 
-class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
+class RconSettings(SharedSettings):
+    model_config = {"env_prefix": "URT30T_RCON_"}
+
     host: str = "127.0.0.1"
     port: int = 27960
-    password: str = Required
+    password: str
     recv_timeout: float = 0.25
 
 
 features = FeatureSettings()
-bot = BotSettings()
-rcon = RconSettings()
+bot = BotSettings()  # type: ignore[call-arg]
+rcon = RconSettings()  # type: ignore[call-arg]
