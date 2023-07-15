@@ -9,6 +9,7 @@ fi
 mypy --version
 mypy
 
+export URT30T_FEATURE_LOG_PARSING=on
 export URT30T_FEATURE_DISCORD_UPDATES=off
 export URT30T_GAMES_LOG=README.md
 export URT30T_RCON_PASSWORD=sekret
