@@ -6,22 +6,23 @@ import zoneinfo
 from pathlib import Path
 from typing import Self
 
-import dotenv
-from pydantic import FieldValidationInfo, field_validator, model_validator
-from pydantic_settings import BaseSettings
-
-dotenv.load_dotenv()
+import pydantic_settings
+from pydantic import (
+    FieldValidationInfo,
+    FilePath,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
 BASE_PATH = Path(__file__).parent.parent
 
 
-class SharedSettings(BaseSettings):
-    model_config = {"frozen": True}
+class SharedSettings(pydantic_settings.BaseSettings):
+    model_config = {"env_file": BASE_PATH / ".env", "frozen": True}
 
 
-class LogSettings(SharedSettings):
-    model_config = {"env_prefix": "URT30T_LOG_"}
-
+class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
     level_root: str = "WARNING"
     level_discord: str = "WARNING"
     level_core: str = "INFO"
@@ -45,15 +46,13 @@ logging.getLogger("urt30t.plugins").setLevel(log.level_plugins)
 logger = logging.getLogger(__name__)
 
 
-class FeatureSettings(SharedSettings):
-    model_config = {"env_prefix": "URT30T_FEATURE_"}
-
+class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
     log_parsing: bool = True
     event_dispatch: bool = True
     command_dispatch: bool = True
     discord_updates: bool = True
 
-    @field_validator("event_dispatch", mode="before")
+    @field_validator("event_dispatch")
     def validate_event_dispatch(
         cls,
         v: bool,  # noqa: FBT001
@@ -66,7 +65,7 @@ class FeatureSettings(SharedSettings):
             return False
         return v
 
-    @field_validator("command_dispatch", mode="before")
+    @field_validator("command_dispatch")
     def validate_command_dispatch(
         cls, v: bool, info: FieldValidationInfo  # noqa: FBT001
     ) -> bool:
@@ -77,8 +76,8 @@ class FeatureSettings(SharedSettings):
             return False
         return v
 
-    @model_validator(mode="after")  # type: ignore[arg-type]
-    def _validate_model(cls, self: Self) -> Self:
+    @model_validator(mode="after")  # xxtype: ignore[arg-type]
+    def _validate_model(self) -> Self:
         if not any(
             (
                 self.log_parsing,
@@ -92,11 +91,12 @@ class FeatureSettings(SharedSettings):
         return self
 
 
-class DiscordSettings(SharedSettings):
-    model_config = {"env_prefix": "URT30T_DISCORD_"}
+features = FeatureSettings()
 
+
+class DiscordSettings(SharedSettings, env_prefix="URT30T_DISCORD_"):
     user: str
-    token: str
+    token: SecretStr
     server_name: str
 
     updates_channel_name: str
@@ -114,16 +114,14 @@ class DiscordSettings(SharedSettings):
     mapcycle_file: Path | None = None
 
 
-class BotSettings(SharedSettings):
-    model_config = {"env_prefix": "URT30T_"}
-
+class BotSettings(SharedSettings, env_prefix="URT30T_"):
     name: str = "30+Bot"
     message_prefix: str = "^0(^230+Bot^0)^7:"
     time_format: str = "%I:%M%p %Z %m/%d/%y"
     time_zone: zoneinfo.ZoneInfo = zoneinfo.ZoneInfo("UTC")
-    games_log: Path
+    games_log: FilePath | None = None
     # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
-    db_url: str
+    db_url: str | None = None
     event_queue_max_size: int = 100
     command_prefix: str = "$"
     plugins: list[str] = []
@@ -132,33 +130,33 @@ class BotSettings(SharedSettings):
     log_replay_from_start: bool = False
     game_host: str | None = None
 
-    discord: DiscordSettings | None = None
-
-    @field_validator("discord", mode="before")
-    def _discord_settings(cls, v: DiscordSettings | None) -> DiscordSettings | None:
-        if v is None:
-            try:
-                v = DiscordSettings()  # type: ignore[call-arg]
-            except ValueError:
-                logger.exception("Failed to load Discord Settings")
+    @field_validator("games_log")
+    def _validate_games_log(cls, v: FilePath | None) -> FilePath | None:
+        if v is None and features.log_parsing:
+            msg = "games_log must be set when log_parsing is enabled"
+            raise ValueError(msg)
         return v
 
     @field_validator("time_zone", mode="before")
-    def _time_zone_validate(cls, v: str | zoneinfo.ZoneInfo) -> zoneinfo.ZoneInfo:
+    def _time_zone_from_str(cls, v: str | zoneinfo.ZoneInfo) -> zoneinfo.ZoneInfo:
         if isinstance(v, zoneinfo.ZoneInfo):
             return v
         return zoneinfo.ZoneInfo(v)
 
 
-class RconSettings(SharedSettings):
-    model_config = {"env_prefix": "URT30T_RCON_"}
-
+class RconSettings(SharedSettings, env_prefix="URT30T_RCON_"):
     host: str = "127.0.0.1"
     port: int = 27960
-    password: str
+    password: SecretStr
     recv_timeout: float = 0.25
 
 
-features = FeatureSettings()
-bot = BotSettings()  # type: ignore[call-arg]
+bot = BotSettings()
 rcon = RconSettings()  # type: ignore[call-arg]
+discord: DiscordSettings | None = None
+
+try:
+    discord = DiscordSettings()  # type: ignore[call-arg]
+except Exception:
+    if features.discord_updates:
+        raise

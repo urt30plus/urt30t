@@ -59,9 +59,11 @@ class Bot:
         self._run_background_task(self._run_cleanup())
 
         if settings.features.log_parsing:
+            if not (games_log := settings.bot.games_log):
+                raise BotError("games_log")
             self._run_background_task(
                 _tail_log(
-                    log_file=self._conf.games_log,
+                    log_file=games_log,
                     event_queue=self._events_queue,
                     read_delay=self._conf.log_read_delay,
                     check_truncated=self._conf.log_check_truncated,
@@ -181,23 +183,25 @@ class Bot:
             self._rcon = await AsyncRconClient.create_client(
                 host=settings.rcon.host,
                 port=settings.rcon.port,
-                password=settings.rcon.password,
+                password=settings.rcon.password.get_secret_value(),
                 recv_timeout=settings.rcon.recv_timeout,
             )
             logger.info(self._rcon)
             await self.sync_game()
 
-        if settings.features.discord_updates and self._conf.discord:
+        if settings.features.discord_updates:
+            if not (discord_conf := settings.discord):
+                raise BotError("discord_settings")
             self._discord = discord30.DiscordClient(
-                bot_user=self._conf.discord.user,
-                server_name=self._conf.discord.server_name,
+                bot_user=discord_conf.user,
+                server_name=discord_conf.server_name,
             )
-            await self._discord.login(self._conf.discord.token)
+            await self._discord.login(discord_conf.token.get_secret_value())
             self._run_background_task(
-                self._discord_update_mapcycle(self._discord, self._conf.discord)
+                self._discord_update_mapcycle(self._discord, discord_conf)
             )
             self._run_background_task(
-                self._discord_update_gameinfo(self._discord, self._conf.discord)
+                self._discord_update_gameinfo(self._discord, discord_conf)
             )
         else:
             logger.warning("Discord Updates are not enabled")

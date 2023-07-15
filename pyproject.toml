@@ -50,7 +50,7 @@ ignore = [
 builtins-ignorelist = ["id", "type"]
 
 [tool.ruff.pep8-naming]
-classmethod-decorators = ["pydantic.field_validator", "pydantic.model_validator"]
+classmethod-decorators = ["pydantic.field_validator"]
 
 [tool.ruff.pylint]
 max-args = 8
