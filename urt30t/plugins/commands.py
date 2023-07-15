@@ -89,7 +89,7 @@ class Plugin(BotPlugin):
         player = self.get_player(pid)
         gameinfo = await self.bot.rcon.game_info()
         for p in gameinfo.players:
-            if p.slot == player.slot and p.ping >= 500:
+            if p.slot == player.slot and p.ping >= 500:  # noqa: PLR2004
                 # TODO: fix
                 await cmd.message("yep, ci")
                 return
@@ -322,7 +322,7 @@ class Plugin(BotPlugin):
             times = int(amount)
         except ValueError:
             times = -1
-        if not 1 <= times <= 10:
+        if not 1 <= times <= 10:  # noqa: PLR2004
             await cmd.message("amount must be a number between 1 and 10")
             return
         player = self.get_player(pid)
@@ -419,7 +419,7 @@ class Plugin(BotPlugin):
             return
         cmd_and_data = event.text.lstrip(self.command_prefix)
         prefix_count = len(event.text) - len(cmd_and_data)
-        if not 1 <= prefix_count <= 3:
+        if not 1 <= prefix_count <= 3:  # noqa: PLR2004
             logger.warning("too many command prefixes, ignoring: %s", event.text)
             return
         message_type = MessageType(len(event.text) - len(cmd_and_data))
@@ -481,7 +481,7 @@ class Plugin(BotPlugin):
         return None
 
     def _find_command_sounds_like(self, cmd_name: str, group: Group) -> set[str]:
-        if len(cmd_name) < 2:
+        if len(cmd_name) < 2:  # noqa: PLR2004
             return set()
 
         result = {

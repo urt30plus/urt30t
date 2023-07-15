@@ -130,7 +130,7 @@ class AsyncRconClient:
             return []
         lines = data.decode(encoding=_ENCODING).splitlines()
         if (
-            len(lines) < 2
+            len(lines) < 2  # noqa: PLR2004
             or not lines[0].startswith("-----")
             or not lines[-1].endswith("files listed")
         ):

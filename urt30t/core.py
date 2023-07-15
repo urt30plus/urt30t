@@ -151,7 +151,7 @@ class Bot:
         return self.game.players.get(slot)
 
     def find_player(self, s: str, /) -> list[Player]:
-        if len(s) <= 3 and s.isdigit():
+        if len(s) <= 3 and s.isdigit():  # noqa: PLR2004
             p = self.player(s)
             return [p] if p else []
         needle = s.lower()
@@ -380,7 +380,7 @@ def bot_command(
         name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
         sig = inspect.signature(f)  # type: ignore[arg-type]
         handler_name = f"{f.__module__}.{f.__qualname__}"  # type: ignore[attr-defined]
-        if len(sig.parameters) < 2:
+        if len(sig.parameters) < 2:  # noqa: PLR2004
             msg = (
                 f"Command handler [{handler_name}] must have at"
                 " least one parameter. Typically this is named `cmd` and "
@@ -435,7 +435,10 @@ def bot_command(
 
 def bot_subscribe(f: _T) -> _T:
     func: FunctionType = cast(FunctionType, f)
-    if len(func.__annotations__) == 2 and func.__annotations__["return"] is None:
+    if (
+        len(func.__annotations__) == 2  # noqa: PLR2004
+        and func.__annotations__["return"] is None
+    ):
         for var_name, var_type in func.__annotations__.items():
             if var_name == "return":
                 continue

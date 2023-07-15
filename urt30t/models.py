@@ -36,12 +36,12 @@ class Timer:
         self._elapsed = 0.0
 
     def start(self) -> None:
-        if not self._mark == 0.0:
+        if not self._mark == 0.0:  # noqa: PLR2004
             raise RuntimeError(self._mark)
         self._mark = time.time()
 
     def stop(self) -> None:
-        if (mark := self._mark) == 0.0:
+        if (mark := self._mark) == 0.0:  # noqa: PLR2004
             raise RuntimeError(mark)
         self._mark = 0.0
         self._elapsed += time.time() - mark
@@ -318,8 +318,9 @@ class BotCommand:
     args: list[str] = dataclasses.field(default_factory=list)
 
     def player_group(self) -> Group:
-        assert self
         # TODO: lookup the player's actual Group
+        if self.player.auth:
+            return Group.USER
         return Group.GUEST
 
     async def message(
