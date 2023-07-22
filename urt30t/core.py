@@ -29,6 +29,7 @@ from .models import (
     Game,
     Group,
     Player,
+    Server,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class Bot:
         ] = defaultdict(list)
         self._command_handlers: dict[str, BotCommandConfig] = {}
         self.game = Game()
+        self.server = Server()
         self._tasks: set[asyncio.Task[None]] = set()
 
     async def run(self) -> None:

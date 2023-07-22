@@ -1,5 +1,6 @@
 import difflib
 import logging
+import re
 
 from urt30t import (
     Bot,
@@ -233,18 +234,25 @@ class Plugin(BotPlugin):
         """
         returns the list of all maps on the server
         """
-        # TODO: cache maps somewhere, maybe self.bot.server?
-        #   check for cache and if not populated call maps_reload()
-        map_list = await self.bot.rcon.maps()
-        await cmd.message(f"found {len(map_list)} maps")
+        if not (map_list := self.bot.server.map_list):
+            map_list = await self._map_list_reload()
+        lines = [re.sub(r"^ut\d*?_", "", m) for m in map_list]
+        if lines:
+            await cmd.message(", ".join(lines))
+        else:
+            await cmd.message("no maps found")
 
     @bot_command(level=Group.MODERATOR)
     async def maps_reload(self, cmd: BotCommand) -> None:
         """
         reloads the maps cache
         """
-        # TODO: re-cache the maps list
-        raise NotImplementedError
+        await self._map_list_reload()
+        await self.maps(cmd)
+
+    async def _map_list_reload(self) -> list[str]:
+        self.bot.server.map_list = await self.bot.rcon.maps()
+        return self.bot.server.map_list
 
     @bot_command(level=Group.ADMIN)
     async def moon(self, cmd: BotCommand, toggle: str) -> None:

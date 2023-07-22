@@ -203,6 +203,11 @@ class Player:
 
 
 @dataclasses.dataclass
+class Server:
+    map_list: list[str] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
 class Game:
     map_name: str = ""
     type: GameType = GameType.FFA
@@ -251,6 +256,7 @@ class BotCommandConfig(NamedTuple):
 
 class Bot(Protocol):
     game: Game
+    server: Server
 
     @property
     @abc.abstractmethod
