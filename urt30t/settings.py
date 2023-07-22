@@ -15,11 +15,14 @@ from pydantic import (
     model_validator,
 )
 
-BASE_PATH = Path(__file__).parent.parent
+__version__ = "0.0.2"
+
+PACKAGE_ROOT = Path(__file__).parent
+PROJECT_ROOT = PACKAGE_ROOT.parent
 
 
 class SharedSettings(pydantic_settings.BaseSettings):
-    model_config = {"env_file": BASE_PATH / ".env", "frozen": True}
+    model_config = {"env_file": PROJECT_ROOT / ".env", "frozen": True}
 
 
 class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):

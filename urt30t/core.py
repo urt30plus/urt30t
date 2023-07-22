@@ -20,7 +20,6 @@ from . import (
     discord30,
     events,
     settings,
-    version,
 )
 from .models import (
     BotCommand,
@@ -370,7 +369,7 @@ class Bot:
         task.add_done_callback(self._tasks.discard)
 
     def __repr__(self) -> str:
-        return f"Bot(v{version.__version__}, started={self._started_at})"
+        return f"Bot(v{settings.__version__}, started={self._started_at})"
 
 
 def bot_command(

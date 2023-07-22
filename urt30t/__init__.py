@@ -1,6 +1,10 @@
 """
 Urban Terror |30+| Game/Discord Bot
 """
+# this import should come first in order to init logging
+# and to fail fast in the event of a mis-configuration
+from .settings import __version__  # noqa: I001
+
 from urt30arcon import GameType, Team
 
 from .core import (
@@ -19,7 +23,6 @@ from .models import (
     MessageType,
     Player,
 )
-from .version import __version__
 
 __all__ = [
     "__version__",
