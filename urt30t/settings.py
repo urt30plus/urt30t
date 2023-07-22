@@ -76,7 +76,7 @@ class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
             return False
         return v
 
-    @model_validator(mode="after")  # xxtype: ignore[arg-type]
+    @model_validator(mode="after")
     def _validate_model(self) -> Self:
         if not any(
             (
