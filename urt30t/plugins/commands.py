@@ -17,6 +17,8 @@ from ..models import BotCommandConfig, PlayerNotFoundError, TooManyPlayersFoundE
 
 logger = logging.getLogger(__name__)
 
+CI_PING_THRESHOLD = 500
+
 
 class Plugin(BotPlugin):
     def __init__(self, bot: Bot) -> None:
@@ -89,12 +91,17 @@ class Plugin(BotPlugin):
         player = self.get_player(pid)
         gameinfo = await self.bot.rcon.game_info()
         for p in gameinfo.players:
-            if p.slot == player.slot and p.ping >= 500:  # noqa: PLR2004
-                # TODO: fix
-                await cmd.message("yep, ci")
-                return
-
-        await cmd.message("not ci")
+            if p.slot == player.slot:
+                if p.team is Team.SPECTATOR:
+                    await cmd.message(f"{p.clean_name} is a spectator and not CI")
+                elif p.ping >= CI_PING_THRESHOLD:
+                    await self.bot.rcon.kick(p.slot, "connection interrupt")
+                    await cmd.message(f"{p.clean_name} was kick due to CI: {p.ping}")
+                else:
+                    await cmd.message(f"{p.clean_name} ping [{p.ping}] is not CI")
+                break
+        else:
+            await cmd.message(f"{player.name} [{player.slot}] is no longer connected")
 
     @bot_command(Group.MODERATOR)
     async def clear(self, cmd: BotCommand, pid: str | None = None) -> None:
