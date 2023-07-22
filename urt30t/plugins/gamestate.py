@@ -101,8 +101,9 @@ class Plugin(BotPlugin):
 
     @bot_subscribe
     async def on_client_spawn(self, event: events.ClientSpawn) -> None:
-        if player := self.bot.player(event.slot):
-            player.alive_timer.start()
+        if not (player := self.bot.player(event.slot)):
+            player = await self.bot.sync_player(event.slot)
+        player.alive_timer.start()
 
     @bot_subscribe
     async def on_client_disconnect(self, event: events.ClientDisconnect) -> None:

@@ -138,7 +138,21 @@ class Bot:
 
     async def sync_player(self, slot: str) -> Player:
         if not (player := self.player(slot)):
-            raise RuntimeError(slot)
+            game = await self.rcon.game_info()
+            for p in game.players:
+                if p.slot == slot:
+                    player = Player(
+                        slot=p.slot,
+                        name=p.clean_name,
+                        name_exact=p.name,
+                        auth=p.auth,
+                        guid=p.guid,
+                        team=p.team,
+                        ip_address=p.ip_address,
+                    )
+                    break
+            else:
+                raise RuntimeError(slot)
         if not player.guid and (userinfo := await self.rcon.dumpuser(slot)):
             player.guid = userinfo["cl_guid"]
         # TODO: load/save info from/to db
