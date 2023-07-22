@@ -1,9 +1,11 @@
 import asyncio
+import datetime
 import logging
 import time
 from pathlib import Path
 
 import aiofiles
+import aiofiles.os
 import discord
 
 from urt30arcon import AsyncRconClient, GameType
@@ -26,10 +28,12 @@ class MapCycleUpdater(DiscordEmbedUpdater):
     ) -> None:
         super().__init__(api_client, rcon_client, channel_name, embed_title)
         self.mapcycle_file = mapcycle_file
+        self.last_mtime = 0.0
 
     async def update(self) -> bool:
-        # TODO: maybe compare mapcycle_file last mod time against
-        #  the ms/embed last modify time and store those in the class.
+        if await self.file_not_changed():
+            return False
+
         message, embed = await asyncio.gather(
             self.fetch_embed_message(),
             create_embed(self.mapcycle_file, self.embed_title),
@@ -43,6 +47,21 @@ class MapCycleUpdater(DiscordEmbedUpdater):
         curr_txt = curr_embed.description if curr_embed.description else ""
         new_txt = embed.description if embed.description else ""
         return curr_txt.strip() != new_txt.strip()
+
+    async def file_not_changed(self) -> bool:
+        stats = await aiofiles.os.stat(self.mapcycle_file)
+        if stats.st_mtime == self.last_mtime:
+            return False
+
+        if self.last_mtime:  # only if we previously stored the mtime
+            old_time = datetime.datetime.fromtimestamp(self.last_mtime, tz=datetime.UTC)
+            new_time = datetime.datetime.fromtimestamp(stats.st_mtime, tz=datetime.UTC)
+            logger.info(
+                "%s mtime changed: [%s]-->[%s]", self.mapcycle_file, old_time, new_time
+            )
+
+        self.last_mtime = stats.st_mtime
+        return True
 
 
 async def create_embed(mapcycle_file: Path, embed_title: str) -> discord.Embed:
