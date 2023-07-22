@@ -16,11 +16,12 @@ if __name__ == "__main__":
     try:
         uvloop = importlib.import_module("uvloop")
     except ModuleNotFoundError:
-        with contextlib.suppress(KeyboardInterrupt):
-            asyncio.run(async_main())
+        loop_factory = None
     else:
-        with (
-            contextlib.suppress(KeyboardInterrupt),
-            asyncio.Runner(loop_factory=uvloop.new_event_loop) as runner,
-        ):
-            runner.run(async_main())
+        loop_factory = uvloop.new_event_loop
+
+    with (
+        contextlib.suppress(KeyboardInterrupt),
+        asyncio.Runner(loop_factory=loop_factory) as runner,
+    ):
+        runner.run(async_main())
