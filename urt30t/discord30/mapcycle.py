@@ -51,7 +51,7 @@ class MapCycleUpdater(DiscordEmbedUpdater):
     async def file_not_changed(self) -> bool:
         stats = await aiofiles.os.stat(self.mapcycle_file)
         if stats.st_mtime == self.last_mtime:
-            return False
+            return True
 
         if self.last_mtime:  # only if we previously stored the mtime
             old_time = datetime.datetime.fromtimestamp(self.last_mtime, tz=datetime.UTC)
@@ -61,7 +61,7 @@ class MapCycleUpdater(DiscordEmbedUpdater):
             )
 
         self.last_mtime = stats.st_mtime
-        return True
+        return False
 
 
 async def create_embed(mapcycle_file: Path, embed_title: str) -> discord.Embed:
