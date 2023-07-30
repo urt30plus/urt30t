@@ -12,6 +12,7 @@ from urt30t import (
     bot_command,
     bot_subscribe,
     events,
+    settings,
 )
 
 from ..models import BotCommandConfig, PlayerNotFoundError, TooManyPlayersFoundError
@@ -52,7 +53,7 @@ class Plugin(BotPlugin):
     @bot_command(Group.ADMIN, alias="bal")
     async def balance(self, cmd: BotCommand) -> None:
         """
-        Move as few players as needed to create teams balanced by numbers AND skill.
+        Move as few players as needed to create teams balanced by numbers and skill.
         """
         raise NotImplementedError
 
@@ -107,7 +108,7 @@ class Plugin(BotPlugin):
     @bot_command(Group.MODERATOR)
     async def clear(self, cmd: BotCommand, pid: str | None = None) -> None:
         """
-        [<player>] - clear all tk points and warnings
+        [<player>] - clear all warnings
         """
         raise NotImplementedError
 
@@ -155,8 +156,6 @@ class Plugin(BotPlugin):
     @bot_command(level=Group.GUEST)
     async def cmd_help(self, cmd: BotCommand, name: str | None = None) -> None:
         """Provides a list of commands available."""
-        # TODO: get list of commands available to the player that issued command
-        #   or make sure the user has access to the target command
         if name:
             if cmd_config := self._find_command_config(name, cmd.player_group()):
                 if doc_string := cmd_config.handler.__doc__:
@@ -167,6 +166,8 @@ class Plugin(BotPlugin):
             else:
                 message = f"command [{name}] not found"
         else:
+            # TODO: get list of commands available to the player that issued command
+            #   or make sure the user has access to the target command
             message = f"there are {len(self.bot.commands)} commands total"
 
         await cmd.message(message)
@@ -183,7 +184,12 @@ class Plugin(BotPlugin):
         """
         <player> [<reason>] - kick a player
         """
-        raise NotImplementedError
+        player = self.get_player(pid)
+        await self.bot.rcon.kick(player.slot, reason)
+        msg = f"{player.name} was kicked"
+        if reason:
+            msg += f" for {reason}"
+        await cmd.message(msg)
 
     @bot_command(Group.MODERATOR)
     async def lastbans(self, cmd: BotCommand) -> None:
@@ -193,13 +199,17 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(Group.GUEST, alias="lt")
-    async def leveltest(self, cmd: BotCommand, pid: str) -> None:
+    async def leveltest(self, cmd: BotCommand, pid: str | None = None) -> None:
         """
         [<player>] - display a user's status
         """
-        # TODO: handle cases where data is another user to test
-        logger.debug(pid)
-        await cmd.message(f"{cmd.player_group().name}")
+        if pid:
+            player = self.get_player(pid)
+            # TODO: where do we store player group/level info?
+            await cmd.message(f"{player.name} is in group ??")
+        else:
+            # TODO: where do we store player group/level info?
+            await cmd.message(f"{cmd.player_group().name}")
 
     @bot_command(Group.MODERATOR)
     async def cmd_list(self, cmd: BotCommand) -> None:
@@ -216,11 +226,12 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.MODERATOR)
-    async def cmd_map(self, cmd: BotCommand, map_name: str) -> None:
+    async def cmd_map(self, _: BotCommand, map_name: str) -> None:
         """
         <map name> - switches to the given map
         """
-        raise NotImplementedError
+        # TODO: check map list and provides close choices
+        await self.bot.rcon.map(map_name)
 
     @bot_command(level=Group.ADMIN)
     async def map_restart(self, _: BotCommand) -> None:
@@ -259,7 +270,10 @@ class Plugin(BotPlugin):
         """
         <on|off> - sets moon mode
         """
-        raise NotImplementedError
+        if toggle.lower() in settings.TRUE_VALUES:
+            await self._set_var_or_show_var(cmd, "g_gravity", "100")
+        else:
+            await self._set_var_or_show_var(cmd, "g_gravity", "800")
 
     @bot_command(level=Group.MODERATOR)
     async def mute(
@@ -268,7 +282,12 @@ class Plugin(BotPlugin):
         """
         <player> [<duration>] - mutes a player
         """
-        raise NotImplementedError
+        player = self.get_player(pid)
+        await self.bot.rcon.mute(player.slot, duration)
+        msg = f"{player.name} muted"
+        if duration:
+            msg += f" for {duration}"
+        await cmd.message(msg)
 
     @bot_command(level=Group.ADMIN)
     async def nuke(self, _: BotCommand, pid: str) -> None:
@@ -279,11 +298,22 @@ class Plugin(BotPlugin):
         await self.bot.rcon.nuke(player.slot)
 
     @bot_command(level=Group.ADMIN)
-    async def permban(self, cmd: BotCommand, name: str) -> None:
+    async def permban(
+        self, cmd: BotCommand, pid: str, reason: str | None = None
+    ) -> None:
         """
         <player> [<reason>] - ban a player permanently
         """
-        raise NotImplementedError
+        # TODO: reason should be mandatory
+        player = self.get_player(pid)
+        if player.ip_address:
+            await self.bot.rcon.ban(player.ip_address)
+
+        # TODO: save ban to storage
+        msg = f"{player.name} was perm banned"
+        if reason:
+            msg += f" for {reason}"
+        await cmd.message(msg)
 
     @bot_command(Group.ADMIN)
     async def putgroup(self, cmd: BotCommand, pid: str, group_name: str) -> None:
@@ -293,11 +323,10 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def reload(self, cmd: BotCommand) -> None:
+    async def reload(self, _: BotCommand) -> None:
         """
         reloads the current map
         """
-        assert cmd.player
         await self.bot.rcon.reload()
 
     @bot_command(level=Group.MODERATOR)
@@ -353,11 +382,10 @@ class Plugin(BotPlugin):
         raise NotImplementedError
 
     @bot_command(level=Group.ADMIN)
-    async def swapteams(self, cmd: BotCommand) -> None:
+    async def swapteams(self, _: BotCommand) -> None:
         """
         swaps current teams
         """
-        assert cmd.player
         await self.bot.rcon.swap_teams()
 
     @bot_command(Group.USER)
@@ -396,11 +424,17 @@ class Plugin(BotPlugin):
         await self._set_var_or_show_var(cmd, "timelimit", limit)
 
     @bot_command(Group.ADMIN)
-    async def unban(self, cmd: BotCommand) -> None:
+    async def unban(self, cmd: BotCommand, pid: str) -> None:
         """
         <player> - un-ban a player
         """
-        raise NotImplementedError
+        player = self.get_player(pid)
+        # TODO: get IP address saved in the bans table
+        if player.ip_address:
+            await self.bot.rcon.unban(player.ip_address)
+
+        # TODO: remove ban from bans table
+        await cmd.message(f"{player.name} was unbanned")
 
     @bot_command(Group.ADMIN)
     async def ungroup(self, cmd: BotCommand) -> None:

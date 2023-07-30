@@ -124,6 +124,9 @@ class AsyncRconClient:
                 return base_path / map_file.value
         return None
 
+    async def map(self, map_name: str) -> None:  # noqa: A003
+        await self._execute(f"map {map_name}")
+
     async def maps(self) -> list[str]:
         if not (data := await self._execute(b"fdir *.bsp", retry=True)):
             logger.error("maps command returned no data")
@@ -225,7 +228,7 @@ class AsyncRconClient:
             cmd = cmd.encode(encoding=_ENCODING)
         rcon_cmd = b'%srcon "%s" %s\n' % (_CMD_PREFIX, self._password, cmd)
         async with self._lock:
-            # handle reconnects on case of errors or lost connections
+            # handle reconnects in case of errors or lost connections
             if self._transport.is_closing():
                 self._transport = await _new_transport(
                     self.host, self.port, self._recv_q, self._buffer_free

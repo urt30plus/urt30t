@@ -20,6 +20,8 @@ __version__ = "0.0.2"
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
 
+TRUE_VALUES = {"true", "1", "yes", "on", "enable"}
+
 
 class SharedSettings(pydantic_settings.BaseSettings):
     model_config = {"env_file": PROJECT_ROOT / ".env", "frozen": True}
