@@ -60,6 +60,12 @@ class Group(enum.IntEnum):
     ADMIN = 100
 
 
+class Penalty(enum.Enum):
+    kick = "kick"
+    tempban = "tempban"
+    permban = "permban"
+
+
 class MessageType(enum.Enum):
     PRIVATE = 1
     LOUD = 2
