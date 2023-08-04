@@ -12,7 +12,7 @@ async def async_main() -> None:
     await urt30t.core.Bot().run()
 
 
-if __name__ == "__main__":
+def main() -> None:
     try:
         uvloop = importlib.import_module("uvloop")
     except ModuleNotFoundError:
@@ -25,3 +25,7 @@ if __name__ == "__main__":
         asyncio.Runner(loop_factory=loop_factory) as runner,
     ):
         runner.run(async_main())
+
+
+if __name__ == "__main__":
+    main()

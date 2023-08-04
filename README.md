@@ -58,3 +58,10 @@ Install the pre-commit hooks
 Run the checks
 
     bash run_checks.sh
+
+### Reloading
+
+To run the bot and have it reload when changes are made, use the following
+command:
+
+    watchfiles urt30t.__main__.main
