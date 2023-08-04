@@ -26,16 +26,18 @@ class Base(DeclarativeBase):
 
 
 class Player(Base):
-    __tablename__ = "players"
+    __tablename__ = "urt30t_players"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    auth: Mapped[str] = mapped_column(sa.String(32))
-    level: Mapped[int]
-    xp: Mapped[float]
-    guid: Mapped[str] = mapped_column(sa.String(32))
-    name: Mapped[str] = mapped_column(sa.String(32))
-    ip_address: Mapped[str] = mapped_column(sa.String(48))
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    auth: Mapped[str] = mapped_column(sa.String(32), index=True, unique=True)
+    guid: Mapped[str] = mapped_column(sa.String(32), index=True, unique=True)
+    name: Mapped[str] = mapped_column(sa.String(32), index=True)
+    level: Mapped[int] = mapped_column(default=0)
+    xp: Mapped[float] = mapped_column(default=0.0)
     created_at: Mapped[datetime.datetime] = mapped_column(insert_default=sa.func.now())
     updated_at: Mapped[datetime.datetime] = mapped_column(
         insert_default=sa.func.now(), onupdate=sa.func.now()
     )
+
+    def __repr__(self) -> str:
+        return f"Player(id={self.id}, auth={self.auth})"
