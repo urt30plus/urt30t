@@ -126,7 +126,8 @@ class BotSettings(SharedSettings, env_prefix="URT30T_"):
     time_zone: zoneinfo.ZoneInfo = zoneinfo.ZoneInfo("UTC")
     games_log: FilePath | None = None
     # SQLAlchemy url, ex. sqlite+aiosqlite:///file_path
-    db_url: str | None = None
+    db_url: str = "sqlite+aiosqlite:///:memory:"
+    db_debug: bool = False
     event_queue_max_size: int = 100
     command_prefix: str = "$"
     plugins: list[str] = []
