@@ -471,7 +471,7 @@ class Plugin(BotPlugin):
         if not 1 <= prefix_count <= 3:  # noqa: PLR2004
             logger.warning("too many command prefixes, ignoring: %s", event.text)
             return
-        message_type = MessageType(len(event.text) - len(cmd_and_data))
+        message_type = MessageType(prefix_count)
         name, _, data = cmd_and_data.partition(" ")
         cmd_args = [x.strip() for x in data.split()]
         cmd = BotCommand(
