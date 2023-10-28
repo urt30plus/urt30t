@@ -8,9 +8,9 @@ from typing import Self
 
 import pydantic_settings
 from pydantic import (
-    FieldValidationInfo,
     FilePath,
     SecretStr,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -61,7 +61,7 @@ class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
     def validate_event_dispatch(
         cls,
         v: bool,  # noqa: FBT001
-        info: FieldValidationInfo,
+        info: ValidationInfo,
     ) -> bool:
         if v and not info.data.get("log_parsing"):
             logger.warning(
@@ -72,7 +72,7 @@ class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
 
     @field_validator("command_dispatch")
     def validate_command_dispatch(
-        cls, v: bool, info: FieldValidationInfo  # noqa: FBT001
+        cls, v: bool, info: ValidationInfo  # noqa: FBT001
     ) -> bool:
         if v and not info.data.get("event_dispatch"):
             logger.warning(

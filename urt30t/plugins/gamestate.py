@@ -80,13 +80,11 @@ class Plugin(BotPlugin):
             if name != player.name_exact:
                 logger.warning("name change: %s -> %s", player.name_exact, name)
                 # TODO: fire name change event
-                pass
             if (
                 team := Team(event.user_data["t"])
             ) is not player.team and player.team is not Team.SPECTATOR:
                 logger.warning("team change: %s -> %s", player.team, team)
                 # TODO: fire team change event
-                pass
             player.update_name(name)
             player.update_team(team)
 
