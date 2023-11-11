@@ -1,6 +1,7 @@
 """
 Urban Terror |30+| Game/Discord Bot
 """
+
 # this import should come first in order to init logging
 # and to fail fast in the event of a mis-configuration
 from .settings import __version__  # noqa: I001

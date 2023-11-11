@@ -177,6 +177,7 @@ class ClientSpawn(SlotGameEvent):
 @dataclasses.dataclass
 class ClientUserInfo(GameEvent):
     r"""12:17 ClientUserinfo: 12 \ip\..\authc\74..\authl\2..\cl_guid\...."""
+
     slot: str
     user_data: dict[str, str]
 
@@ -307,6 +308,7 @@ class HotPotato(GameEvent):
 @dataclasses.dataclass
 class InitAuth(GameEvent):
     r"""0:00 InitAuth: \auth\-1\auth_status\notoriety\auth_cheaters\1\..."""
+
     auth_data: dict[str, str]
 
     @classmethod
@@ -320,6 +322,7 @@ class InitAuth(GameEvent):
 @dataclasses.dataclass
 class InitGame(GameEvent):
     r"""0:00 InitGame: \sv_allowdownload\0\g_matchmode\0\g_gametype\7\..."""
+
     game_data: dict[str, str]
 
     @classmethod

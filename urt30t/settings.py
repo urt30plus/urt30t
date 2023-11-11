@@ -1,6 +1,7 @@
 """
 Bot settings and configuration.
 """
+
 import logging
 import zoneinfo
 from pathlib import Path
