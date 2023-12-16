@@ -1,6 +1,7 @@
-.*cache/
-.venv*/
-temp/
 .env
-**/__pycache__/
-*scratch*.py
+
+.*/
+temp/
+__pycache__/
+
+!.github/
