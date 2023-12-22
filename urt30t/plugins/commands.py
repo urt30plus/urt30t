@@ -520,14 +520,16 @@ class Plugin(BotPlugin):
     def _find_command_config(
         self, cmd_name: str, group: Group
     ) -> BotCommandConfig | None:
-        # TODO: verify group >= cmd.level
-        assert group
-        if cmd_config := self.bot.commands.get(cmd_name):
-            return cmd_config
-        for c in self.bot.commands.values():
-            if c.alias == cmd_name:
-                return c
-        return None
+        if not (cmd_config := self.bot.commands.get(cmd_name)):
+            for c in self.bot.commands.values():
+                if c.alias == cmd_name:
+                    cmd_config = c
+                    break
+
+        if cmd_config is None or group.value < cmd_config.level.value:
+            return None
+
+        return cmd_config
 
     def _find_command_sounds_like(self, cmd_name: str, group: Group) -> set[str]:
         if len(cmd_name) < 2:  # noqa: PLR2004
