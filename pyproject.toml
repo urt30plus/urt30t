@@ -48,3 +48,6 @@ classmethod-decorators = ["pydantic.field_validator"]
 
 [tool.ruff.pylint]
 max-args = 8
+
+[tool.ruff.format]
+preview = true

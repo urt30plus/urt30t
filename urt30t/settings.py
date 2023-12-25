@@ -86,14 +86,12 @@ class FeatureSettings(SharedSettings, env_prefix="URT30T_FEATURE_"):
 
     @model_validator(mode="after")
     def _validate_model(self) -> Self:
-        if not any(
-            (
-                self.log_parsing,
-                self.event_dispatch,
-                self.command_dispatch,
-                self.discord_updates,
-            )
-        ):
+        if not any((
+            self.log_parsing,
+            self.event_dispatch,
+            self.command_dispatch,
+            self.discord_updates,
+        )):
             msg = "At least one feature must be enabled"
             raise ValueError(msg)
         return self
