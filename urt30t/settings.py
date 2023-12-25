@@ -21,7 +21,7 @@ __version__ = "23.12.22"
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
 
-TRUE_VALUES = {"true", "1", "yes", "on", "enable"}
+TRUE_VALUES = frozenset(["true", "1", "yes", "on", "enable"])
 
 
 class SharedSettings(pydantic_settings.BaseSettings):
