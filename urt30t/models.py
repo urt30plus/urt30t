@@ -17,6 +17,10 @@ CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 RE_COLOR = re.compile(r"(\^\d)")
 
 
+async def default_command_handler(_: "BotCommand") -> None:
+    raise NotImplementedError
+
+
 class BotError(Exception):
     pass
 

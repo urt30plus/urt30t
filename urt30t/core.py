@@ -30,6 +30,7 @@ from .models import (
     Group,
     Player,
     Server,
+    default_command_handler,
 )
 
 logger = logging.getLogger(__name__)
@@ -436,7 +437,7 @@ def bot_command(
             else:
                 args_opt += 1
         f.bot_command_config = BotCommandConfig(  # type: ignore[attr-defined]
-            handler=None,  # type: ignore
+            handler=default_command_handler,
             name=name.lower(),
             level=level,
             alias=alias,
