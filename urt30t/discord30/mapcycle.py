@@ -7,7 +7,6 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os
 import discord
-
 from urt30arcon import AsyncRconClient, GameType
 
 from . import DiscordClient, DiscordEmbedUpdater

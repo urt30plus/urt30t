@@ -13,7 +13,6 @@ from typing import Any, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
-
 from urt30arcon import AsyncRconClient
 
 from . import (

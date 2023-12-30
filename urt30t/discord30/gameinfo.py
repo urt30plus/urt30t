@@ -4,7 +4,6 @@ import operator
 import time
 
 import discord
-
 from urt30arcon import AsyncRconClient, Game, GameType, Player
 
 from . import DiscordClient, DiscordEmbedUpdater

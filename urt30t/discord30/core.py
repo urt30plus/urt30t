@@ -3,7 +3,6 @@ import logging
 from typing import Any
 
 import discord
-
 from urt30arcon import AsyncRconClient
 
 logger = logging.getLogger(__name__)
