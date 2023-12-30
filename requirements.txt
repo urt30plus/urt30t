@@ -4,7 +4,7 @@ discord.py[speed]==2.3.2
 pydantic==2.5.3
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
-sqlalchemy==2.0.23
+sqlalchemy==2.0.24
 tzdata
 
 urt30arcon @ git+https://github.com/urt30plus/urt30arcon.git@v1.0.1
