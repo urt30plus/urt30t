@@ -7,5 +7,5 @@ python-dotenv==1.0.0
 sqlalchemy==2.0.24
 tzdata
 
-urt30arcon @ git+https://github.com/urt30plus/urt30arcon.git@v1.0.1
+urt30arcon @ git+https://github.com/urt30plus/urt30arcon.git@v1.0.2
 uvloop==0.19.0; sys_platform == 'linux'
