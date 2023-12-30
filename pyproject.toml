@@ -1,5 +1,5 @@
 [tool.mypy]
-packages = ["urt30arcon", "urt30t"]
+packages = ["urt30t"]
 strict = true
 warn_unreachable = true
 
