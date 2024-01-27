@@ -3,7 +3,7 @@ alembic==1.13.1
 discord.py[speed]==2.3.2
 pydantic==2.5.3
 pydantic-settings==2.1.0
-python-dotenv==1.0.0
+python-dotenv==1.0.1
 sqlalchemy==2.0.25
 tzdata
 urt30arcon==1.0.3
