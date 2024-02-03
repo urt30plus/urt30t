@@ -6,6 +6,11 @@ warn_unreachable = true
 [tool.ruff]
 target-version = "py311"
 extend-exclude = [".*"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.ruff.lint]
 select = [
     "A",  # shadowing builtins
     "ARG",  # unused arguments
@@ -35,19 +40,16 @@ select = [
 ]
 ignore = ["ISC001"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "alembic/env.py" = ["I001", "ERA001"]
 "urt30t/events.py" = ["S101"]
 "tests/**.py" = ["PLR2004", "S101"]
 
-[tool.ruff.flake8-builtins]
+[tool.ruff.lint.flake8-builtins]
 builtins-ignorelist = ["id", "type"]
 
-[tool.ruff.pep8-naming]
+[tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.field_validator"]
 
-[tool.ruff.pylint]
+[tool.ruff.lint.pylint]
 max-args = 8
-
-[tool.ruff.format]
-preview = true
