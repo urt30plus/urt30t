@@ -7,26 +7,18 @@ import contextlib
 import importlib
 
 
-async def async_main() -> None:
+async def start_bot() -> None:
+    # defer import until there is a running event loop
     import urt30t.core
 
     await urt30t.core.Bot().run()
 
 
-def main() -> None:
-    try:
-        uvloop = importlib.import_module("uvloop")
-    except ModuleNotFoundError:
-        loop_factory = None
-    else:
-        loop_factory = uvloop.new_event_loop
+try:
+    uvloop = importlib.import_module("uvloop")
+    aio_run = uvloop.run
+except ModuleNotFoundError:
+    aio_run = asyncio.run
 
-    with (
-        contextlib.suppress(KeyboardInterrupt),
-        asyncio.Runner(loop_factory=loop_factory) as runner,
-    ):
-        runner.run(async_main())
-
-
-if __name__ == "__main__":
-    main()
+with contextlib.suppress(KeyboardInterrupt):
+    aio_run(start_bot())
