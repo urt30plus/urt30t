@@ -12,7 +12,7 @@ commands and other features are not implemented yet.
 ## Requirements
 
 - Urban Terror 4.3.4
-- Requires Python 3.11+
+- Requires Python 3.12+
 
 ## Configuration
 
@@ -23,7 +23,7 @@ The bot uses OS Environment Variables for its settings. See the
 
 ### Create a virtual environment
 
-    python3.11 -m venv .venv311
+    python3.12 -m venv .venv312
 
 ### Install the dependencies
 
@@ -69,15 +69,15 @@ To set up as a `systemd` service, see the sample `etc/systemd/urt30t.service` fi
 
 ### Create a virtual environment
 
-    python3.11 -m venv .venv311
+    python3.12 -m venv .venv311
 
 ### Install the development dependencies
 
-    .venv311/bin/pip install -r requirements-dev.txt
+    .venv312/bin/pip install -r requirements-dev.txt
 
 ### Install pre-commit. Recommend using `pipx`, but can also install locally using
 
-    .venv311/bin/pip install pre-commit
+    .venv312/bin/pip install pre-commit
 
 ### Install the pre-commit hooks
 

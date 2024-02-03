@@ -1,10 +1,11 @@
 [tool.mypy]
+python_version = "3.12"
 packages = ["urt30t"]
 strict = true
 warn_unreachable = true
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 extend-exclude = [".*"]
 
 [tool.ruff.format]
