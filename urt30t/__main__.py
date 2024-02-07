@@ -16,9 +16,10 @@ async def start_bot() -> None:
 
 try:
     uvloop = importlib.import_module("uvloop")
-    aio_run = uvloop.run
 except ModuleNotFoundError:
     aio_run = asyncio.run
+else:
+    aio_run = uvloop.run
 
 with contextlib.suppress(KeyboardInterrupt):
     aio_run(start_bot())
