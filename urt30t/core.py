@@ -112,7 +112,14 @@ class Bot:
 
     async def sync_game(self) -> None:
         old_game = self.game
-        rcon_game = await self.rcon.game_info()
+        for _ in range(5):
+            try:
+                rcon_game = await self.rcon.game_info()
+                break
+            except LookupError:
+                await asyncio.sleep(1.5)
+        else:
+            return
         new_players = {
             p.slot: Player(
                 slot=p.slot,
