@@ -6,5 +6,5 @@ pydantic-settings==2.2.1
 python-dotenv==1.0.1
 sqlalchemy==2.0.28
 tzdata
-urt30arcon==1.0.3
+urt30arcon==1.2.1
 uvloop==0.19.0; sys_platform == 'linux'

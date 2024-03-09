@@ -2,6 +2,7 @@ import asyncio
 import logging
 import operator
 import time
+from typing import NamedTuple
 
 import discord
 from urt30arcon import AsyncRconClient, Game, GameType, Player
@@ -18,6 +19,11 @@ EMBED_NO_PLAYERS = "```\n" + " " * (24 + 18) + "\n```"
 SORT_KEY_NAME = operator.attrgetter("clean_name")
 
 
+class NextMapCache(NamedTuple):
+    name: str | None
+    expires: float
+
+
 class GameInfoUpdater(DiscordEmbedUpdater):
     def __init__(
         self,
@@ -29,6 +35,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
     ) -> None:
         super().__init__(api_client, rcon_client, channel_name, embed_title)
         self._last_game: Game | None = None
+        self._next_map = NextMapCache(None, -1.0)
         self._game_host = game_host
 
     async def update(self) -> bool:
@@ -40,22 +47,47 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         if message and same_map_and_specs(game, self._last_game):
             result = False
         else:
+            next_map = await self.fetch_next_map(game)
             embed = create_server_embed(
-                game, self.embed_title, self._game_host, self.rcon_client.port
+                game, next_map, self.embed_title, self._game_host, self.rcon_client.port
             )
             result = await self._update_or_create_if_needed(message, embed)
 
-        self._last_game = game
+        if game:
+            self._last_game = game
+
         return result
 
     async def fetch_game_info(self) -> Game | None:
-        try:
-            return await self.rcon_client.game_info()
-        except LookupError:
-            return None
-        except Exception:
-            logger.exception("Failed to fetch game info")
-            return None
+        for _ in range(3):
+            try:
+                return await self.rcon_client.game_info()
+            except LookupError:
+                continue
+            except Exception:
+                logger.exception("Failed to fetch game info")
+                break
+        return None
+
+    async def fetch_next_map(self, game: Game | None) -> str | None:
+        now = time.monotonic()
+        if (
+            self.is_same_map_as_last(game)
+            and self._next_map.name
+            and self._next_map.expires < now
+        ):
+            return self._next_map.name
+        if next_map := await self.rcon_client.next_map():
+            self._next_map = NextMapCache(next_map, now + 30.0)
+            return next_map
+        return self._next_map.name
+
+    def is_same_map_as_last(self, game: Game | None) -> bool:
+        return (
+            self._last_game is not None
+            and game is not None
+            and self._last_game.map_name == game.map_name
+        )
 
     def should_update_embed(
         self, message: discord.Message, embed: discord.Embed
@@ -132,6 +164,7 @@ def add_mapinfo_field(embed: discord.Embed, game: Game) -> None:
 
 def create_server_embed(
     game: Game | None,
+    next_map: str | None,
     title: str,
     game_host: str | None = None,
     game_port: int | None = None,
@@ -142,7 +175,7 @@ def create_server_embed(
     if game_host:
         if not game_port:
             game_port = 27960
-        connect_info = f"`/connect {game_host}:{game_port}`"
+        connect_info = f"```/connect {game_host}:{game_port}```"
     else:
         connect_info = ""
 
@@ -153,18 +186,28 @@ def create_server_embed(
         if game.players:
             embed.colour = discord.Colour.green()
             add_mapinfo_field(embed, game)
+            if next_map:
+                embed.add_field(
+                    name="Next Map", value=f"```{next_map}```", inline=False
+                )
             add_player_fields(embed, game)
-            embed.add_field(name=connect_info, value=last_updated, inline=False)
+            embed.add_field(name="", value=connect_info, inline=False)
+            embed.add_field(name="", value=last_updated, inline=False)
         else:
             embed.colour = discord.Colour.light_grey()
             # do not add a field to make updating based on description only
+            if next_map:
+                embed.description += (
+                    f"\n**Next Map**\n```{next_map:{len(EMBED_NO_PLAYERS)}}```"
+                )
             embed.description += "\n*No players online*\n"
-            embed.description += f"\n{connect_info}\n{last_updated}"
+            embed.description += f"\n{connect_info}"
+            embed.description += f"\n{last_updated}"
     else:
         embed.colour = discord.Colour.red()
         embed.description = "*Unable to retrieve server information*"
         # add last updated as a field to trigger updating
-        embed.add_field(name=connect_info, value=last_updated, inline=False)
+        embed.add_field(name="", value=last_updated, inline=False)
 
     return embed
 
