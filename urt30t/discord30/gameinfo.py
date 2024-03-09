@@ -5,7 +5,7 @@ import time
 from typing import NamedTuple
 
 import discord
-from urt30arcon import AsyncRconClient, Game, GameType, Player
+from urt30arcon import AsyncRconClient, Game, Player
 
 from . import DiscordClient, DiscordEmbedUpdater
 
@@ -182,9 +182,7 @@ def create_server_embed(
         connect_info = ""
 
     if game:
-        game_type = "Gun Game/FFA" if game.type is GameType.FFA else game.type.name
-        description = f"{game.map_name} ({game_type})"
-        embed.description = f"```\n{description}\n```"
+        embed.description = f"```\n{game.map_name}\n```"
         if game.players:
             embed.colour = discord.Colour.green()
             if next_map:
