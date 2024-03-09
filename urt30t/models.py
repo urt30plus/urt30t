@@ -40,12 +40,12 @@ class Timer:
         self._elapsed = 0.0
 
     def start(self) -> None:
-        if not self._mark == 0.0:  # noqa: PLR2004
+        if not self._mark == 0.0:
             raise RuntimeError(self._mark)
         self._mark = time.time()
 
     def stop(self) -> None:
-        if (mark := self._mark) == 0.0:  # noqa: PLR2004
+        if (mark := self._mark) == 0.0:
             raise RuntimeError(mark)
         self._mark = 0.0
         self._elapsed += time.time() - mark
