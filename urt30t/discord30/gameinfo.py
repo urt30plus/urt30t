@@ -74,7 +74,7 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         if (
             self.is_same_map_as_last(game)
             and self._next_map.name
-            and self._next_map.expires < now
+            and self._next_map.expires > now
         ):
             return self._next_map.name
         if next_map := await self.rcon_client.next_map():
