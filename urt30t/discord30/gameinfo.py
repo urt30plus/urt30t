@@ -187,11 +187,11 @@ def create_server_embed(
         embed.description = f"```\n{description}\n```"
         if game.players:
             embed.colour = discord.Colour.green()
-            add_mapinfo_field(embed, game)
             if next_map:
                 embed.add_field(
                     name="Next Map", value=f"```{next_map}```", inline=False
                 )
+            add_mapinfo_field(embed, game)
             add_player_fields(embed, game)
             embed.add_field(name="", value=connect_info, inline=False)
             embed.add_field(name="", value=last_updated, inline=False)
