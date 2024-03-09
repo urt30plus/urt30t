@@ -78,6 +78,8 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         ):
             return self._next_map.name
         if next_map := await self.rcon_client.next_map():
+            if next_map != self._next_map.name:
+                logger.info("Updating next map from %s to %s", self._next_map, next_map)
             self._next_map = NextMapCache(next_map, now + 30.0)
             return next_map
         return self._next_map.name
