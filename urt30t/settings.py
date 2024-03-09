@@ -7,6 +7,7 @@ import zoneinfo
 from pathlib import Path
 from typing import Self
 
+import dotenv
 import pydantic_settings
 from pydantic import (
     FilePath,
@@ -16,16 +17,18 @@ from pydantic import (
     model_validator,
 )
 
-__version__ = "24.2.6"
+__version__ = "24.3.9"
 
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
 
 TRUE_VALUES = frozenset(["true", "1", "yes", "on", "enable"])
 
+dotenv.load_dotenv()
+
 
 class SharedSettings(pydantic_settings.BaseSettings):
-    model_config = {"env_file": PROJECT_ROOT / ".env", "frozen": True}
+    model_config = {"frozen": True}
 
 
 class LogSettings(SharedSettings, env_prefix="URT30T_LOG_"):
