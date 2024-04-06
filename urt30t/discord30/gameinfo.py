@@ -11,12 +11,15 @@ from . import DiscordClient, DiscordEmbedUpdater
 
 logger = logging.getLogger(__name__)
 
-# Max embed field length is roughly 48. We use 18 to display the
-# ` [K../D./A.] 123ms` scores, and we want to leave a few chars
-# for it to fit comfortably
+# max embed field length is roughly 48 for most mobile and desktop viewports
+# found through trial and error
 SIZE_MAX_LEN = 48
-SIZE_KDA = 18
-SIZE_PLAYER_NAME = SIZE_MAX_LEN - SIZE_KDA - 6
+
+# for player name we have to take into account the KDA/Ping display and
+# a magic number for spacing for it to fit comfortably
+SIZE_PLAYER_NAME = SIZE_MAX_LEN - len(" [K../D./A.] 123ms") - 6
+
+# spacer used for showing a team with no players
 EMBED_NO_PLAYERS = "```\n" + " " * SIZE_MAX_LEN + "\n```"
 
 SORT_KEY_NAME = operator.attrgetter("clean_name")
