@@ -14,7 +14,10 @@ logger = logging.getLogger(__name__)
 # Max embed field length is roughly 48. We use 18 to display the
 # ` [K../D./A.] 123ms` scores, and we want to leave a few chars
 # for it to fit comfortably
-EMBED_NO_PLAYERS = "```\n" + " " * (24 + 18) + "\n```"
+SIZE_MAX_LEN = 48
+SIZE_KDA = 18
+SIZE_PLAYER_NAME = SIZE_MAX_LEN - SIZE_KDA - 6
+EMBED_NO_PLAYERS = "```\n" + " " * SIZE_MAX_LEN + "\n```"
 
 SORT_KEY_NAME = operator.attrgetter("clean_name")
 
@@ -110,8 +113,9 @@ class GameInfoUpdater(DiscordEmbedUpdater):
 
 
 def format_player(p: Player) -> str:
-    ping = f"{p.ping:3}ms" if p.ping > 0 else ""
-    return f"{p.clean_name[:24]:24} [{p.kills:3}/{p.deaths:2}/{p.assists:2}] {ping}"
+    ping = f"{p.ping:3}ms" if p.ping > 0 else "  0ms"
+    player_name = p.clean_name[:SIZE_PLAYER_NAME].ljust(SIZE_PLAYER_NAME)
+    return f"{player_name} [{p.kills:3}/{p.deaths:2}/{p.assists:2}] {ping}"
 
 
 def sort_key_kda(p: Player) -> tuple[int, int, int, str]:
