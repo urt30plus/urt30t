@@ -104,7 +104,7 @@ def create_mapcycle_embed(cycle: MapCycle, embed_title: str) -> discord.Embed:
     if cycle:
         descr = (
             "```\n"
-            + "\n".join([f"{k:25} {map_mode(v)}" for k, v in cycle.items()])
+            + "\n".join([f"{k:22} {map_mode(v)}" for k, v in cycle.items()])
             + "```"
         )
         color = discord.Colour.blue()
