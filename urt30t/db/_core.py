@@ -26,31 +26,34 @@ session_maker = async_sessionmaker(engine, expire_on_commit=False)
 async def sync_player(player: Player) -> None:
     async with session_maker.begin() as session:
         if client := await _find_client(session, player):
-            player.db_id = client.cid
-            player.group = Group(client.level)
-            player.xp = client.xp
+            _sync_client_player_attrs(player, client)
             async with asyncio.TaskGroup() as tg:
                 tg.create_task(_sync_client_guids(session, client, player))
                 tg.create_task(_sync_client_aliases(session, client, player))
                 tg.create_task(_sync_client_ip_addresses(session, client, player))
         else:
             client = await _create_client(session, player)
-            player.db_id = client.cid
-            player.group = Group(client.level)
-            player.xp = client.xp
+            _sync_client_player_attrs(player, client)
+
+
+def _sync_client_player_attrs(player: Player, client: Client) -> None:
+    player.db_id = client.cid
+    player.group = Group(client.level)
+    player.xp = client.xp
 
 
 async def _find_client(session: AsyncSession, player: Player) -> Client | None:
     if player.auth:
         stmt1 = sa.select(Client).where(Client.authl == player.auth)
         result1 = await session.execute(stmt1)
+        # TODO: lookup guid if not set on player
         return result1.scalar_one_or_none()
     if player.guid:
         stmt2 = sa.select(Guid).where(Guid.cl_guid == player.guid)
         result2 = await session.execute(stmt2)
         if db_guid := result2.scalar_one_or_none():
+            player.auth = db_guid.client.authl
             return db_guid.client
-        return None
     return None
 
 
