@@ -157,7 +157,7 @@ class Plugin(BotPlugin):
     async def cmd_help(self, cmd: BotCommand, name: str | None = None) -> None:
         """Provides a list of commands available."""
         if name:
-            if cmd_config := self._find_command_config(name, cmd.player_group()):
+            if cmd_config := self._find_command_config(name, cmd.player.group):
                 if doc_string := cmd_config.handler.__doc__:
                     clean_doc = " ".join(x.strip() for x in doc_string.splitlines())
                     message = f'"{clean_doc}"'
@@ -205,11 +205,9 @@ class Plugin(BotPlugin):
         """
         if pid:
             player = self.get_player(pid)
-            # TODO: where do we store player group/level info?
-            await cmd.message(f"{player.name} is in group ??")
+            await cmd.message(f"{player.name} is in group {player.group}")
         else:
-            # TODO: where do we store player group/level info?
-            await cmd.message(f"{cmd.player_group().name}")
+            await cmd.message(f"{cmd.player.group.name}")
 
     @bot_command(Group.MODERATOR)
     async def cmd_list(self, cmd: BotCommand) -> None:
@@ -481,7 +479,7 @@ class Plugin(BotPlugin):
             player=player,
             args=cmd_args,
         )
-        if cmd_config := self._find_command_config(name, cmd.player_group()):
+        if cmd_config := self._find_command_config(name, cmd.player.group):
             if cmd_config.max_args == 0:
                 cmd_args = []
             elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
@@ -502,7 +500,7 @@ class Plugin(BotPlugin):
                 await cmd.message(f"Which player? {choices}", MessageType.PRIVATE)
         else:
             logger.warning("no command config found: %s", event)
-            if candidates := self._find_command_sounds_like(name, cmd.player_group()):
+            if candidates := self._find_command_sounds_like(name, cmd.player.group):
                 msg = f"did you mean? {", ".join(candidates)}"
             else:
                 msg = f"command [{name}] not found"

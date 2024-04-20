@@ -190,6 +190,9 @@ class Player:
     deaths: int = 0
     assists: int = 0
     ip_address: str | None = None
+    db_id: int | None = None
+    group: Group = Group.GUEST
+    xp: float = 0.0
 
     alive_timer: Timer = dataclasses.field(default_factory=Timer)
 
@@ -322,12 +325,6 @@ class BotCommand:
     message_type: MessageType
     player: Player
     args: list[str] = dataclasses.field(default_factory=list)
-
-    def player_group(self) -> Group:
-        # TODO: lookup the player's actual Group
-        if self.player.auth:
-            return Group.USER
-        return Group.GUEST
 
     async def message(
         self, message: str, message_type: MessageType | None = None
