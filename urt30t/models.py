@@ -55,6 +55,9 @@ class Timer:
             return self._elapsed + (time.time() - mark)
         return self._elapsed
 
+    def __repr__(self) -> str:
+        return f"Timer({self.elapsed()})"
+
 
 class Group(enum.IntEnum):
     GUEST = 1
