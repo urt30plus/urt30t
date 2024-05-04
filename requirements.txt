@@ -1,6 +1,6 @@
 aiofiles==23.2.1
 discord.py[speed]==2.3.2
-pydantic==2.7.0
+pydantic==2.7.1
 pydantic-settings==2.2.1
 python-dotenv==1.0.1
 sqlalchemy==2.0.29
