@@ -1,9 +1,9 @@
 aiofiles==23.2.1
-discord.py[speed]==2.3.2
-pydantic==2.7.1
-pydantic-settings==2.2.1
+discord.py[speed]==2.4.0
+pydantic==2.7.4
+pydantic-settings==2.3.3
 python-dotenv==1.0.1
-SQLAlchemy==2.0.30
+SQLAlchemy==2.0.31
 tzdata
 urt30arcon==1.2.1
 uvloop==0.19.0; sys_platform == 'linux'
