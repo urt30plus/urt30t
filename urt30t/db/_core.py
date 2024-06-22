@@ -40,6 +40,10 @@ async def sync_player(player: Player) -> None:
 
 async def _find_player(player: Player) -> DBPlayer | None:
     async with session_maker() as session:
+        if player.db_id:
+            rv = await session.get(DBPlayer, player.db_id)
+            logger.info("db_id lookup returned: %r [%s]", rv, type(rv))
+            return rv
         if player.auth:
             stmt1 = sa.select(DBPlayer).where(DBPlayer.auth == player.auth)
             result1 = await session.execute(stmt1)
