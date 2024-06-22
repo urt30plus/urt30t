@@ -157,11 +157,10 @@ class Bot:
             else:
                 logger.error("dumpuser failed for slot [%s]", slot)
 
-        if not player.db_id:
+        if settings.features.log_parsing and not player.db_id:
             await db.sync_player(player)
+            # TODO: check for bans
 
-        await db.sync_player(player)
-        # TODO: check for bans
         logger.info("%r", player)
         return player
 
