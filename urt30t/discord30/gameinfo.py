@@ -184,6 +184,9 @@ def create_server_embed(
     embed = discord.Embed(title=title)
 
     last_updated = f"updated <t:{int(time.time())}:R>"
+    if SIZE_MAX_LEN != 48 or PLAYER_NAME_PADDING != 6:  # noqa:PLR2004
+        last_updated += f"  ||(m={SIZE_MAX_LEN}, p={PLAYER_NAME_PADDING})||"
+
     if game_host:
         if not game_port:
             game_port = 27960
