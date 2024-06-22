@@ -16,6 +16,7 @@ import aiofiles.os
 from urt30arcon import AsyncRconClient
 
 from . import (
+    db,
     discord30,
     events,
     settings,
@@ -147,26 +148,21 @@ class Bot:
 
     async def sync_player(self, slot: str) -> Player:
         if not (player := self.player(slot)):
-            game = await self.rcon.game_info()
-            for p in game.players:
-                if p.slot == slot:
-                    player = Player(
-                        slot=p.slot,
-                        name=p.clean_name,
-                        name_exact=p.name,
-                        auth=p.auth,
-                        guid=p.guid,
-                        team=p.team,
-                        ip_address=p.ip_address,
-                    )
-                    break
+            raise BotError("invalid_slot", slot)
+
+        if not (player.guid and player.auth):
+            if userinfo := await self.rcon.dumpuser(slot):
+                player.guid = userinfo["cl_guid"]
+                player.auth = userinfo["authl"]
             else:
-                raise RuntimeError(slot)
-        if not player.guid and (userinfo := await self.rcon.dumpuser(slot)):
-            player.guid = userinfo["cl_guid"]
-        # TODO: load/save info from/to db
+                logger.error("dumpuser failed for slot [%s]", slot)
+
+        if not player.db_id:
+            await db.sync_player(player)
+
+        await db.sync_player(player)
         # TODO: check for bans
-        logger.debug(player)
+        logger.info("%r", player)
         return player
 
     def player(self, slot: str) -> Player | None:
