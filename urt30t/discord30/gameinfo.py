@@ -13,11 +13,14 @@ logger = logging.getLogger(__name__)
 
 # max embed field length is roughly 48 for most mobile and desktop viewports
 # found through trial and error
-SIZE_MAX_LEN = 46
+SIZE_MAX_LEN = 48
+
+# padding between the player name and the KDA
+PLAYER_NAME_PADDING = 6
 
 # for player name we have to take into account the KDA/Ping display and
 # a magic number for spacing for it to fit comfortably
-SIZE_PLAYER_NAME = SIZE_MAX_LEN - len(" [K../D./A.] 123ms") - 6
+SIZE_PLAYER_NAME = SIZE_MAX_LEN - len(" [K../D./A.] 123ms") - PLAYER_NAME_PADDING
 
 # spacer used for showing a team with no players
 EMBED_NO_PLAYERS = "```\n" + " " * SIZE_MAX_LEN + "\n```"
