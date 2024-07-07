@@ -1,7 +1,7 @@
-aiofiles==23.2.1
+aiofiles==24.1.0
 discord.py[speed]==2.4.0
-pydantic==2.7.4
-pydantic-settings==2.3.3
+pydantic==2.8.2
+pydantic-settings==2.3.4
 python-dotenv==1.0.1
 SQLAlchemy==2.0.31
 tzdata
