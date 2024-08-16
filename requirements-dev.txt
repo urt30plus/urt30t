@@ -1,7 +1,7 @@
 -r requirements.txt
 
 alembic~=1.13.1
-mypy~=1.11.0
+mypy~=1.11
 pytest~=8.3
 types-aiofiles~=24.1.0
 watchfiles>=0.21.0
