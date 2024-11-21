@@ -1,3 +1,31 @@
+[project]
+name = "urt30t"
+version = "1.0.0"
+description = "|30+| Urban Terror Game/Discord Bot"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "aiosqlite>=0.20.0",
+    "discord.py[speed]>=2.4.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.5.0",
+    "python-dotenv>=1.0.1",
+    "SQLAlchemy[asyncio]>=2.0.36",
+    "tzdata>=2024.2",
+    "urt30arcon>=1.2.2",
+    "uvloop>=0.21.0; sys_platform == 'linux'",
+]
+
+[dependency-groups]
+dev = [
+    "alembic>=1.13.1",
+    "mypy>=1.13.0",
+    "pytest>=8.3.3",
+    "types-aiofiles>=24.1.0",
+    "watchfiles>=0.21.0",
+]
+
 [tool.mypy]
 python_version = "3.12"
 packages = ["urt30t"]

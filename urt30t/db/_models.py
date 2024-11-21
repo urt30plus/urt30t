@@ -86,7 +86,7 @@ class IPAddress(Base):
     player: Mapped[Player] = relationship(back_populates="ip_addresses")
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__qualname__}" f"(cid={self.pid}, ip={self.address})"
+        return f"{self.__class__.__qualname__}(cid={self.pid}, ip={self.address})"
 
 
 class Connection(Base):

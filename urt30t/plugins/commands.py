@@ -501,7 +501,7 @@ class Plugin(BotPlugin):
         else:
             logger.warning("no command config found: %s", event)
             if candidates := self._find_command_sounds_like(name, cmd.player.group):
-                msg = f"did you mean? {", ".join(candidates)}"
+                msg = f"did you mean? {', '.join(candidates)}"
             else:
                 msg = f"command [{name}] not found"
             await cmd.message(msg, MessageType.PRIVATE)

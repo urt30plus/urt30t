@@ -74,7 +74,7 @@ async def create_embed(mapcycle_file: Path, embed_title: str) -> discord.Embed:
 
 
 async def parse_mapcycle(mapcycle_file: Path) -> MapCycle:
-    async with aiofiles.open(mapcycle_file, mode="r", encoding="utf-8") as f:
+    async with aiofiles.open(mapcycle_file, encoding="utf-8") as f:
         lines = await f.readlines()
     return parse_mapcycle_lines(lines)
 
