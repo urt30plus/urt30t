@@ -26,7 +26,6 @@ from .models import (
 )
 
 __all__ = [
-    "__version__",
     "Bot",
     "BotCommand",
     "BotError",
@@ -39,6 +38,7 @@ __all__ = [
     "MessageType",
     "Player",
     "Team",
+    "__version__",
     "bot_command",
     "bot_subscribe",
 ]
