@@ -12,7 +12,7 @@ commands and other features are not implemented yet.
 ## Requirements
 
 - Urban Terror 4.3.4
-- Requires Python 3.12+
+- Requires Python 3.12
 
 ## Configuration
 
@@ -21,13 +21,15 @@ The bot uses OS Environment Variables for its settings. See the
 
 ## Running
 
-### Create a virtual environment
+The project uses the [uv](https://docs.astral.sh/uv/) tool for
+dependency management.
 
-    python3.12 -m venv .venv312
+### Installation
 
-### Install the dependencies
+The following will create a `.venv` directory and install only the
+runtime dependencies:
 
-    .venv311/bin/pip install -r requirements.txt
+    uv sync --upgrade --no-dev
 
 ### Set the appropriate Environment Variables
 
@@ -61,23 +63,34 @@ export URT30T_DISCORD_MAPCYCLE_EMBED_TITLE=Map Cycle
 
 ### Run the module
 
-    .venv311/bin/python -m urt30t
+    uv run -m urt30t
+
+Or you can run it from the virtualenv:
+
+Linux:
+
+    .venv/bin/python -m urt30t
+
+Windows:
+
+    .venv\Scripts\python -m urt30t
 
 To set up as a `systemd` service, see the sample `etc/systemd/urt30t.service` file.
 
 ## Developing
 
-### Create a virtual environment
+### Installation
 
-    python3.12 -m venv .venv311
+The following will create a `.venv` directory and install both the
+runtime and development dependencies:
 
-### Install the development dependencies
+    uv sync --upgrade
 
-    .venv312/bin/pip install -r requirements-dev.txt
+### Install pre-commit
 
-### Install pre-commit. Recommend using `pipx`, but can also install locally using
+Recommend installing as a tool:
 
-    .venv312/bin/pip install pre-commit
+    uv tool install pre-commit
 
 ### Install the pre-commit hooks
 
