@@ -5,6 +5,7 @@ import importlib.util
 import inspect
 import logging
 import os
+import sys
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from pathlib import Path
@@ -58,6 +59,7 @@ class Bot:
 
     async def run(self) -> None:
         logger.info("%s running", self)
+        logger.info("Python %s", sys.version)
         self._run_background_task(self._run_cleanup())
 
         if settings.features.log_parsing:
