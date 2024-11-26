@@ -34,7 +34,7 @@ warn_unreachable = true
 
 [tool.ruff]
 target-version = "py313"
-extend-exclude = [".*"]
+extend-exclude = [".*", "alembic"]
 
 [tool.ruff.format]
 preview = true
@@ -71,7 +71,6 @@ select = [
 ignore = ["ISC001"]
 
 [tool.ruff.lint.per-file-ignores]
-"alembic/env.py" = ["I001", "ERA001"]
 "tests/**.py" = ["PLR2004", "S101"]
 
 [tool.ruff.lint.flake8-builtins]
