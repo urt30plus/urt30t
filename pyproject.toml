@@ -8,7 +8,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     "aiosqlite>=0.20.0",
     "discord.py[speed]>=2.4.0",
-    "pydantic>=2.10.1",
+    "pydantic>=2.10.2",
     "pydantic-settings>=2.5.0",
     "python-dotenv>=1.0.1",
     "SQLAlchemy[asyncio]>=2.0.36",
@@ -23,7 +23,7 @@ dev = [
     "mypy>=1.13.0",
     "pytest>=8.3.3",
     "types-aiofiles>=24.1.0",
-    "watchfiles>=0.24.0",
+    "watchfiles>=1.0.0",
 ]
 
 [tool.mypy]
