@@ -8,6 +8,10 @@ from .models import BombAction, FlagAction, HitLocation, HitMode, KillMode
 EventHandler = Callable[["GameEvent"], Awaitable[None]]
 
 
+class EventParseError(Exception):
+    pass
+
+
 class LogEvent(NamedTuple):
     type: type["GameEvent"]
     game_time: str = "0:00"
@@ -34,7 +38,9 @@ class SlotGameEvent(GameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         return cls(game_time=log_event.game_time, slot=log_event.data)
 
 
@@ -71,7 +77,9 @@ class AccountValidated(SlotGameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         slot, auth, text = log_event.data.split(" - ", maxsplit=2)
         return cls(game_time=log_event.game_time, slot=slot, auth=auth, text=text)
 
@@ -109,7 +117,9 @@ class Bomb(SlotGameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         action, _, slot = log_event.data.split(" ")
         slot = slot.rstrip("!")  # defused by 11!
         return cls(game_time=log_event.game_time, slot=slot, action=BombAction(action))
@@ -167,7 +177,9 @@ class ClientUserInfo(SlotGameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         slot, _, text = log_event.data.partition(" ")
         data = _parse_info_string(text)
         return cls(game_time=log_event.game_time, slot=slot, user_data=data)
@@ -236,7 +248,9 @@ class FlagReturn(GameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         return cls(game_time=log_event.game_time, team=Team[log_event.data])
 
 
@@ -293,7 +307,9 @@ class InitAuth(GameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         return cls(
             game_time=log_event.game_time, auth_data=_parse_info_string(log_event.data)
         )
@@ -307,7 +323,9 @@ class InitGame(GameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         return cls(
             game_time=log_event.game_time, game_data=_parse_info_string(log_event.data)
         )
@@ -368,7 +386,9 @@ class Say(SlotGameEvent):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         slot, text = log_event.data.split(" ", maxsplit=1)
         name, text = text.split(": ", maxsplit=1)
         return cls(game_time=log_event.game_time, slot=slot, name=name, text=text)
@@ -385,7 +405,9 @@ class SayTell(Say):
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
-        assert log_event.data
+        if not log_event.data:
+            msg = f"data missing for event: {log_event!r}"
+            raise EventParseError(msg)
         slot, target, text = log_event.data.split(" ", maxsplit=2)
         name, text = text.split(": ", maxsplit=1)
         return cls(
