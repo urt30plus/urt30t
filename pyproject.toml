@@ -75,6 +75,3 @@ ignore = ["ISC001"]
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.field_validator"]
-
-[tool.ruff.lint.pylint]
-max-args = 8
