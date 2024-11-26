@@ -39,10 +39,9 @@ class SlotGameEvent(GameEvent):
 
 
 @dataclasses.dataclass
-class AccountKick(GameEvent):
+class AccountKick(SlotGameEvent):
     """2:34 AccountKick: 13 - [ABC]foobar^7 rejected: no account"""
 
-    slot: str
     text: str
 
     @classmethod
@@ -52,10 +51,9 @@ class AccountKick(GameEvent):
 
 
 @dataclasses.dataclass
-class AccountRejected(GameEvent):
+class AccountRejected(SlotGameEvent):
     """0:57 AccountRejected: 19 -  - "no account" """
 
-    slot: str
     text: str
 
     @classmethod
@@ -65,10 +63,9 @@ class AccountRejected(GameEvent):
 
 
 @dataclasses.dataclass
-class AccountValidated(GameEvent):
+class AccountValidated(SlotGameEvent):
     """0:03 AccountValidated: 0 - m0neysh0t - 6 - "" """
 
-    slot: str
     auth: str
     text: str
 
@@ -80,10 +77,9 @@ class AccountValidated(GameEvent):
 
 
 @dataclasses.dataclass
-class Assist(GameEvent):
+class Assist(SlotGameEvent):
     """2:34 Assist: 12 1 0: Trance^7 assisted |30+|spooky^7 to kill |30+|Roberts^7"""
 
-    slot: str
     killer: str
     victim: str
     text: str
@@ -102,14 +98,13 @@ class Assist(GameEvent):
 
 
 @dataclasses.dataclass
-class Bomb(GameEvent):
+class Bomb(SlotGameEvent):
     """0:44 Bomb was tossed by 8
     3:28 Bomb was planted by 13
     6:52 Bomb was defused by 11!
     3:22 Bomb has been collected by 13
     """
 
-    slot: str
     action: BombAction
 
     @classmethod
@@ -121,10 +116,8 @@ class Bomb(GameEvent):
 
 
 @dataclasses.dataclass
-class BombHolder(GameEvent):
+class BombHolder(SlotGameEvent):
     """5:52 Bombholder is 2"""
-
-    slot: str
 
     @classmethod
     def from_log_event(cls, log_event: LogEvent) -> Self:
@@ -150,35 +143,26 @@ class ClientBegin(SlotGameEvent):
 class ClientConnect(SlotGameEvent):
     """8:38 ClientConnect: 15"""
 
-    slot: str
-
 
 @dataclasses.dataclass
 class ClientDisconnect(SlotGameEvent):
     """12:08 ClientDisconnect: 16"""
-
-    slot: str
 
 
 @dataclasses.dataclass
 class ClientMelted(SlotGameEvent):
     """1:52 ClientMelted: 11"""
 
-    slot: str
-
 
 @dataclasses.dataclass
 class ClientSpawn(SlotGameEvent):
     """12:17 ClientSpawn: 4"""
 
-    slot: str
-
 
 @dataclasses.dataclass
-class ClientUserInfo(GameEvent):
+class ClientUserInfo(SlotGameEvent):
     r"""12:17 ClientUserinfo: 12 \ip\..\authc\74..\authl\2..\cl_guid\...."""
 
-    slot: str
     user_data: dict[str, str]
 
     @classmethod
@@ -206,10 +190,9 @@ class Exit(GameEvent):
 
 
 @dataclasses.dataclass
-class Flag(GameEvent):
+class Flag(SlotGameEvent):
     """0:46 Flag: 0 2: team_CTF_redflag"""
 
-    slot: str
     action: FlagAction
     team: Team
 
@@ -233,10 +216,9 @@ class Flag(GameEvent):
 
 
 @dataclasses.dataclass
-class FlagCaptureTime(GameEvent):
+class FlagCaptureTime(SlotGameEvent):
     """0:46 FlagCaptureTime: 0: 6000"""
 
-    slot: str
     cap_time: float
 
     @classmethod
@@ -259,10 +241,9 @@ class FlagReturn(GameEvent):
 
 
 @dataclasses.dataclass
-class Freeze(GameEvent):
+class Freeze(SlotGameEvent):
     """1:36 Freeze: 4 17 38: |30+|money^7 froze <>(CK)<>^7 by UT_MOD_M4"""
 
-    slot: str
     target: str
     freeze_mode: KillMode
 
@@ -279,10 +260,9 @@ class Freeze(GameEvent):
 
 
 @dataclasses.dataclass
-class Hit(GameEvent):
+class Hit(SlotGameEvent):
     """2:02 Hit: 4 8 4 19: |30+|Mudcat^7 hit |30+|money^7 in the Vest"""
 
-    slot: str
     attacker: str
     location: HitLocation
     hit_mode: HitMode
@@ -346,10 +326,9 @@ class Item(GameEvent):
 
 
 @dataclasses.dataclass
-class Kill(GameEvent):
+class Kill(SlotGameEvent):
     """3:17 Kill: 8 5 46: |30+|Mudcat^7 killed |30+|BenderBot^7 by UT_MOD_TOD50"""
 
-    slot: str
     victim: str
     kill_mode: KillMode
 
@@ -381,10 +360,9 @@ class Score(GameEvent):
 
 
 @dataclasses.dataclass
-class Say(GameEvent):
+class Say(SlotGameEvent):
     """15:25 say: 3 |30+|MerryMandolin^7: ggs"""
 
-    slot: str
     name: str
     text: str
 
@@ -430,6 +408,8 @@ class SurvivorWinner(GameEvent):
     3:43 SurvivorWinner: 0
     """
 
+    # slot is optional so we do not use SlotGameEven
+    # as the base
     slot: str | None = None
     team: Team | None = None
 
@@ -464,10 +444,9 @@ class TeamScores(GameEvent):
 
 
 @dataclasses.dataclass
-class ThawOutFinished(GameEvent):
+class ThawOutFinished(SlotGameEvent):
     """1:42 ThawOutFinished: 4 13: |30+|money^7 thawed out I30+IColombianRipper^7"""
 
-    slot: str
     target: str
 
     @classmethod
@@ -478,10 +457,9 @@ class ThawOutFinished(GameEvent):
 
 
 @dataclasses.dataclass
-class ThawOutStarted(GameEvent):
+class ThawOutStarted(SlotGameEvent):
     """1:52 ThawOutStarted: 4 9: |30+|money^7 started thawing out |30+|hedgehog^7"""
 
-    slot: str
     target: str
 
     @classmethod
