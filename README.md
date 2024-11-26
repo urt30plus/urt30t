@@ -12,7 +12,7 @@ commands and other features are not implemented yet.
 ## Requirements
 
 - Urban Terror 4.3.4
-- Requires Python 3.12
+- Requires Python 3.12+
 
 ## Configuration
 
