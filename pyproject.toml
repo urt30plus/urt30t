@@ -71,7 +71,10 @@ select = [
 ignore = ["ISC001"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**.py" = ["PLR2004", "S101"]
+"tests/**.py" = [
+    "PLR2004",  # magic value used in comparison
+    "S101",  # use of assert
+]
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.field_validator"]
