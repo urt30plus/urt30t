@@ -9,8 +9,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from types import FunctionType
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import aiofiles
 import aiofiles.os
@@ -33,6 +32,9 @@ from .models import (
     Server,
     default_command_handler,
 )
+
+if TYPE_CHECKING:
+    from types import FunctionType
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ class Bot:
         if settings.features.event_dispatch:
             await self._load_plugins()
             self._event_handlers[events.BotStartup].append(
-                self.on_startup  # type: ignore
+                self.on_startup  # type: ignore[arg-type]
             )
             await self._dispatch_events()
         else:
@@ -422,7 +424,7 @@ def bot_command(
                     )
                     raise TypeError(msg)
                 continue
-            if p.kind not in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY):
+            if p.kind not in {p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY}:
                 msg = (
                     f"Command handler [{handler_name}],"
                     " *args, **kwargs and keyword only parameters are not supported."
@@ -453,7 +455,7 @@ def bot_command(
 
 
 def bot_subscribe(f: _T) -> _T:
-    func: FunctionType = cast(FunctionType, f)
+    func: FunctionType = cast("FunctionType", f)
     if (
         len(func.__annotations__) == 2  # noqa: PLR2004
         and func.__annotations__["return"] is None
@@ -506,8 +508,10 @@ async def _tail_log(
                 if cur_pos > stats.st_size:
                     logger.warning(
                         "Detected a change in size of the log file, "
-                        f"before ({cur_pos} bytes, now {stats.st_size}). "
-                        "The log was either rotated or emptied."
+                        "before (%s bytes, now %s). "
+                        "The log was either rotated or emptied.",
+                        cur_pos,
+                        stats.st_size,
                     )
                     await fp.seek(0, os.SEEK_END)
                     lines = await fp.readlines()

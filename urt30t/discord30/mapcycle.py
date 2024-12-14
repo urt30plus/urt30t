@@ -43,8 +43,8 @@ class MapCycleUpdater(DiscordEmbedUpdater):
         self, message: discord.Message, embed: discord.Embed
     ) -> bool:
         curr_embed = message.embeds[0]
-        curr_txt = curr_embed.description if curr_embed.description else ""
-        new_txt = embed.description if embed.description else ""
+        curr_txt = curr_embed.description or ""
+        new_txt = embed.description or ""
         return curr_txt.strip() != new_txt.strip()
 
     async def file_not_changed(self) -> bool:

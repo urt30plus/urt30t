@@ -108,8 +108,8 @@ class GameInfoUpdater(DiscordEmbedUpdater):
         # error getting server info, in either case we want to continue updating
         if current_embed.fields or embed.fields:
             return True
-        curr_txt = current_embed.description if current_embed.description else ""
-        new_txt = embed.description if embed.description else ""
+        curr_txt = current_embed.description or ""
+        new_txt = embed.description or ""
         # ignore the last line that has the updated timestamp embedded, at this
         # point the messages are `no players online` and we only want to update
         # if the map has changed
