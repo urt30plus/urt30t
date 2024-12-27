@@ -776,7 +776,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "tzdata" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "urt30arcon" },
     { name = "uvloop", marker = "sys_platform == 'linux'" },
 ]
@@ -795,11 +795,11 @@ requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
     { name = "aiosqlite", specifier = ">=0.20.0" },
     { name = "discord-py", extras = ["speed"], specifier = ">=2.4.0" },
-    { name = "pydantic", specifier = ">=2.10.2" },
-    { name = "pydantic-settings", specifier = ">=2.5.0" },
+    { name = "pydantic", specifier = ">=2.10.4" },
+    { name = "pydantic-settings", specifier = ">=2.7.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
-    { name = "tzdata", specifier = ">=2024.2" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.2" },
     { name = "urt30arcon", specifier = ">=1.2.2" },
     { name = "uvloop", marker = "sys_platform == 'linux'", specifier = ">=0.21.0" },
 ]
@@ -807,7 +807,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "alembic", specifier = ">=1.14.0" },
-    { name = "mypy", specifier = ">=1.13.0" },
+    { name = "mypy", specifier = ">=1.14.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "types-aiofiles", specifier = ">=24.1.0" },
     { name = "watchfiles", specifier = ">=1.0.3" },

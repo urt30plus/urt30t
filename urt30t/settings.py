@@ -17,7 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-__version__ = "2024.11.26"
+__version__ = "2024.12.27"
 
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
