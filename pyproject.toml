@@ -8,10 +8,10 @@ dependencies = [
     "aiofiles>=24.1.0",
     "aiosqlite>=0.20.0",
     "discord.py[speed]>=2.4.0",
-    "pydantic>=2.10.4",
+    "pydantic>=2.10.5",
     "pydantic-settings>=2.7.1",
     "python-dotenv>=1.0.1",
-    "SQLAlchemy[asyncio]>=2.0.36",
+    "SQLAlchemy[asyncio]>=2.0.37",
     "tzdata>=2024.2; sys_platform == 'win32'",
     "urt30arcon>=1.2.3",
     "uvloop>=0.21.0; sys_platform == 'linux'",
@@ -19,11 +19,11 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "alembic>=1.14.0",
+    "alembic>=1.14.1",
     "mypy>=1.14.1",
     "pytest>=8.3.4",
     "types-aiofiles>=24.1.0",
-    "watchfiles>=1.0.3",
+    "watchfiles>=1.0.4",
 ]
 
 [tool.mypy]
