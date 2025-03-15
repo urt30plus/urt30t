@@ -11,7 +11,7 @@ dependencies = [
     "pydantic>=2.10.6",
     "pydantic-settings>=2.8.1",
     "python-dotenv>=1.0.1",
-    "SQLAlchemy[asyncio]>=2.0.38",
+    "SQLAlchemy[asyncio]>=2.0.39",
     "tzdata>=2025.1; sys_platform == 'win32'",
     "urt30arcon>=1.2.3",
     "uvloop>=0.21.0; sys_platform == 'linux'",
