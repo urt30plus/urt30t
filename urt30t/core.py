@@ -9,7 +9,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import aiofiles
 import aiofiles.os
@@ -37,8 +37,6 @@ if TYPE_CHECKING:
     from types import FunctionType
 
 logger = logging.getLogger(__name__)
-
-_T = TypeVar("_T")
 
 
 class Bot:
@@ -394,10 +392,10 @@ class Bot:
         return f"Bot(v{settings.__version__}, started={self._started_at})"
 
 
-def bot_command(
+def bot_command[T](
     level: Group = Group.USER, alias: str | None = None
-) -> Callable[[_T], _T]:
-    def inner(f: _T) -> _T:
+) -> Callable[[T], T]:
+    def inner(f: T) -> T:
         name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
         sig = inspect.signature(f)  # type: ignore[arg-type]
         handler_name = f"{f.__module__}.{f.__qualname__}"  # type: ignore[attr-defined]
@@ -454,7 +452,7 @@ def bot_command(
     return inner
 
 
-def bot_subscribe(f: _T) -> _T:
+def bot_subscribe[T](f: T) -> T:
     func: FunctionType = cast("FunctionType", f)
     if (
         len(func.__annotations__) == 2  # noqa: PLR2004
