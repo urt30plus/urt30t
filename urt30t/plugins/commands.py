@@ -20,6 +20,7 @@ from ..models import BotCommandConfig, PlayerNotFoundError, TooManyPlayersFoundE
 logger = logging.getLogger(__name__)
 
 CI_PING_THRESHOLD = 500
+MAX_SLAPS = 10
 
 
 class Plugin(BotPlugin):
@@ -364,8 +365,8 @@ class Plugin(BotPlugin):
             times = int(amount)
         except ValueError:
             times = -1
-        if not 1 <= times <= 10:  # noqa: PLR2004
-            await cmd.message("amount must be a number between 1 and 10")
+        if not 1 <= times <= MAX_SLAPS:
+            await cmd.message(f"amount must be a number between 1 and {MAX_SLAPS}")
             return
         player = self.get_player(pid)
         for _ in range(times):
@@ -466,7 +467,7 @@ class Plugin(BotPlugin):
             return
         cmd_and_data = event.text.lstrip(self.command_prefix)
         prefix_count = len(event.text) - len(cmd_and_data)
-        if not 1 <= prefix_count <= 3:  # noqa: PLR2004
+        if prefix_count not in MessageType:
             logger.warning("too many command prefixes, ignoring: %s", event.text)
             return
         message_type = MessageType(prefix_count)
@@ -530,7 +531,7 @@ class Plugin(BotPlugin):
         return cmd_config
 
     def _find_command_sounds_like(self, cmd_name: str, group: Group) -> set[str]:
-        if len(cmd_name) < 2:  # noqa: PLR2004
+        if len(cmd_name) <= 1:
             return set()
 
         result = {
