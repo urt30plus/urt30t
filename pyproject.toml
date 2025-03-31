@@ -3,7 +3,7 @@ name = "urt30t"
 version = "1.0.0"
 description = "|30+| Urban Terror Game/Discord Bot"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.13.*"
 dependencies = [
     "aiofiles>=24.1.0",
     "aiosqlite>=0.20.0",
