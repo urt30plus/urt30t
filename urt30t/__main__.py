@@ -9,7 +9,7 @@ import importlib
 
 async def start_bot() -> None:
     # defer import until there is a running event loop
-    import urt30t.core
+    import urt30t.core  # noqa: PLC0415
 
     await urt30t.core.Bot().run()
 
