@@ -11,7 +11,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
     "python-dotenv>=1.1.1",
-    "SQLAlchemy[asyncio]>=2.0.41",
+    "SQLAlchemy[asyncio]>=2.0.43",
     "tzdata>=2025.2; sys_platform == 'win32'",
     "urt30arcon>=1.2.3",
     "uvloop>=0.21.0; sys_platform == 'linux'",
@@ -19,8 +19,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "alembic>=1.16.2",
-    "mypy>=1.16.1",
+    "alembic>=1.16.4",
+    "mypy>=1.17.1",
     "pytest>=8.4.1",
     "types-aiofiles>=24.1.0",
     "watchfiles>=1.1.0",
