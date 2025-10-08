@@ -7,9 +7,9 @@ requires-python = "==3.13.*"
 dependencies = [
     "aiofiles>=24.1.0",
     "aiosqlite>=0.21.0",
-    "discord.py[speed]>=2.5.2",
-    "pydantic>=2.11.7",
-    "pydantic-settings>=2.10.1",
+    "discord.py[speed]>=2.6.3",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.11.0",
     "python-dotenv>=1.1.1",
     "SQLAlchemy[asyncio]>=2.0.43",
     "tzdata>=2025.2; sys_platform == 'win32'",
@@ -19,9 +19,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "alembic>=1.16.4",
-    "mypy>=1.17.1",
-    "pytest>=8.4.1",
+    "alembic>=1.16.5",
+    "mypy>=1.18.2",
+    "pytest>=8.4.2",
     "types-aiofiles>=24.1.0",
     "watchfiles>=1.1.0",
 ]
