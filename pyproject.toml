@@ -5,25 +5,25 @@ description = "|30+| Urban Terror Game/Discord Bot"
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
-    "aiofiles>=24.1.0",
+    "aiofiles>=25.1.0",
     "aiosqlite>=0.21.0",
-    "discord.py[speed]>=2.6.3",
-    "pydantic>=2.12.0",
+    "discord.py[speed]>=2.6.4",
+    "pydantic>=2.12.3",
     "pydantic-settings>=2.11.0",
     "python-dotenv>=1.1.1",
-    "SQLAlchemy[asyncio]>=2.0.43",
+    "SQLAlchemy[asyncio]>=2.0.44",
     "tzdata>=2025.2; sys_platform == 'win32'",
     "urt30arcon>=1.2.3",
-    "uvloop>=0.21.0; sys_platform == 'linux'",
+    "uvloop>=0.22.1; sys_platform == 'linux'",
 ]
 
 [dependency-groups]
 dev = [
-    "alembic>=1.16.5",
+    "alembic>=1.17.0",
     "mypy>=1.18.2",
     "pytest>=8.4.2",
-    "types-aiofiles>=24.1.0",
-    "watchfiles>=1.1.0",
+    "types-aiofiles>=25.1.0",
+    "watchfiles>=1.1.1",
 ]
 
 [tool.mypy]
