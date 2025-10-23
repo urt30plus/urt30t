@@ -19,7 +19,7 @@ try:
 except ModuleNotFoundError:
     aio_run = asyncio.run
 else:
-    aio_run = uvloop.run
+    aio_run = uvloop.run  # ty: ignore[unresolved-attribute]
 
 with contextlib.suppress(KeyboardInterrupt):
     aio_run(start_bot())
