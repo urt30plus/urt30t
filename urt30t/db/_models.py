@@ -30,9 +30,9 @@ class Player(Base):
         insert_default=sa.func.now(), onupdate=sa.func.now()
     )
 
-    guids: Mapped[list["Guid"]] = relationship(back_populates="player")
-    aliases: Mapped[list["Alias"]] = relationship(back_populates="player")
-    ip_addresses: Mapped[list["IPAddress"]] = relationship(back_populates="player")
+    guids: Mapped[list[Guid]] = relationship(back_populates="player")
+    aliases: Mapped[list[Alias]] = relationship(back_populates="player")
+    ip_addresses: Mapped[list[IPAddress]] = relationship(back_populates="player")
 
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}(pid={self.pid}, auth={self.auth})"

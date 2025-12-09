@@ -13,11 +13,11 @@ class EventParseError(Exception):
 
 
 class LogEvent(NamedTuple):
-    type: type["GameEvent"]
+    type: type[GameEvent]
     game_time: str = "0:00"
     data: str = ""
 
-    def game_event(self) -> "GameEvent":
+    def game_event(self) -> GameEvent:
         return self.type.from_log_event(self)
 
 

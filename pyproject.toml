@@ -3,14 +3,15 @@ name = "urt30t"
 version = "1.0.0"
 description = "|30+| Urban Terror Game/Discord Bot"
 readme = "README.md"
-requires-python = "==3.13.*"
+requires-python = "==3.14.*"
 dependencies = [
     "aiofiles>=25.1.0",
     "aiosqlite>=0.21.0",
+    "brotli>=1.2.0",
     "discord.py[speed]>=2.6.4",
-    "pydantic>=2.12.3",
-    "pydantic-settings>=2.11.0",
-    "python-dotenv>=1.1.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "python-dotenv>=1.2.1",
     "SQLAlchemy[asyncio]>=2.0.44",
     "tzdata>=2025.2; sys_platform == 'win32'",
     "urt30arcon>=1.2.3",
@@ -19,22 +20,22 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "alembic>=1.17.0",
-    "mypy>=1.18.2",
-    "pytest>=8.4.2",
-    "ty>=0.0.1a24",
+    "alembic>=1.17.2",
+    "mypy>=1.19.0",
+    "pytest>=9.0.2",
+    "ty>=0.0.1a32",
     "types-aiofiles>=25.1.0",
     "watchfiles>=1.1.1",
 ]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 packages = ["urt30t"]
 strict = true
 warn_unreachable = true
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 extend-exclude = [".*", "alembic", "etc", "temp"]
 
 [tool.ruff.format]
@@ -71,7 +72,7 @@ select = [
     "UP",  # pyupgrade
     "W",  # pycodestyle (warnings)
 ]
-ignore = ["ISC001"]
+ignore = ["ISC001", "TC002", "TC003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**.py" = [

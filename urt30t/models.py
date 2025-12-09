@@ -17,7 +17,7 @@ CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 RE_COLOR = re.compile(r"(\^\d)")
 
 
-async def default_command_handler(_: "BotCommand") -> None:
+async def default_command_handler(_: BotCommand) -> None:
     raise NotImplementedError
 
 
@@ -30,7 +30,7 @@ class PlayerNotFoundError(BotError):
 
 
 class TooManyPlayersFoundError(BotError):
-    def __init__(self, players: list["Player"]) -> None:
+    def __init__(self, players: list[Player]) -> None:
         self.players = players
 
 

@@ -7,7 +7,7 @@ import logging
 import os
 import sys
 from collections import defaultdict
-from collections.abc import Callable, Coroutine
+from collections.abc import Coroutine
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -34,6 +34,7 @@ from .models import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import FunctionType
 
 logger = logging.getLogger(__name__)
