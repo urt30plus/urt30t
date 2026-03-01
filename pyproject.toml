@@ -8,22 +8,22 @@ dependencies = [
     "aiofiles>=25.1.0",
     "aiosqlite>=0.22.1",
     "brotli>=1.2.0",
-    "discord.py[speed]>=2.6.4",
+    "discord.py[speed]>=2.7.0",
     "pydantic>=2.12.5",
-    "pydantic-settings>=2.12.0",
-    "python-dotenv>=1.2.1",
-    "SQLAlchemy[asyncio]>=2.0.45",
+    "pydantic-settings>=2.13.1",
+    "python-dotenv>=1.2.2",
+    "SQLAlchemy[asyncio]>=2.0.47",
     "tzdata>=2025.3; sys_platform == 'win32'",
-    "urt30arcon>=1.2.3",
+    "urt30arcon>=1.2.4",
     "uvloop>=0.22.1; sys_platform == 'linux'",
 ]
 
 [dependency-groups]
 dev = [
-    "alembic>=1.17.2",
+    "alembic>=1.18.4",
     "mypy>=1.19.1",
     "pytest>=9.0.2",
-    "ty>=0.0.8",
+    "ty>=0.0.19",
     "types-aiofiles>=25.1.0",
     "watchfiles>=1.1.1",
 ]
@@ -82,3 +82,6 @@ ignore = ["ISC001", "TC002", "TC003"]
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.field_validator"]
+
+[tool.ty.src]
+exclude = ["tests/test_log_parsing.py"]

@@ -283,11 +283,11 @@ class Bot:
         for _, meth in inspect.getmembers(
             plugin, predicate=inspect.iscoroutinefunction
         ):
-            if subscription := getattr(meth.__func__, "bot_subscription", None):
-                self._event_handlers[subscription].append(meth)
+            if subscription := getattr(meth.__func__, "bot_subscription", None):  # ty: ignore[unresolved-attribute]
+                self._event_handlers[subscription].append(meth)  # ty: ignore[invalid-argument-type]
                 logger.info("added subscription %s - %s", subscription, meth)
 
-            if cmd_config := getattr(meth.__func__, "bot_command_config", None):
+            if cmd_config := getattr(meth.__func__, "bot_command_config", None):  # ty: ignore[unresolved-attribute]
                 resolved = cmd_config._replace(handler=meth)
                 self._command_handlers[resolved.name] = resolved
                 logger.info("added %r", resolved)
