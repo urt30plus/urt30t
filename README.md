@@ -1,9 +1,6 @@
-# |30+| Urban Terror Game/Discord Bot
+# |30+| Urban Terror Game Bot
 
 ## Status
-
-The Discord updaters that post mapcycle and player updates are fairly complete.
-They are both in use today in our `#mapcycle` channel in our Discord.
 
 The Game bot is still under development as a replacement for B3. Game log
 parsing and the event/command handling mechanisms are in place, but many
@@ -36,10 +33,7 @@ runtime dependencies:
 You can either place these in a file named `.env` in the project root folder
 or source them before running the module.
 
-The following shows the settings required to run the Discord updaters:
-
 ```shell
-export URT30T_FEATURE_DISCORD_UPDATES=on
 export URT30T_FEATURE_LOG_PARSING=off
 export URT30T_FEATURE_EVENT_DISPATCH=off
 export URT30T_FEATURE_COMMAND_DISPATCH=off
@@ -47,18 +41,6 @@ export URT30T_FEATURE_COMMAND_DISPATCH=off
 export URT30T_RCON_HOST=127.0.0.1
 export URT30T_RCON_PORT=27960
 export URT30T_RCON_PASSWORD=supersekret
-export URT30T_GAME_HOST=game.example.org
-
-export URT30T_DISCORD_USER=YourBot#1337
-export URT30T_DISCORD_TOKEN=<bot token>
-export URT30T_DISCORD_SERVER_NAME=My Urban Terror Discord Server
-export URT30T_DISCORD_UPDATES_CHANNEL_NAME=mapcycle
-
-export URT30T_DISCORD_GAMEINFO_UPDATES_ENABLED=true
-export URT30T_DISCORD_GAMEINFO_EMBED_TITLE=Current Map
-
-export URT30T_DISCORD_MAPCYCLE_UPDATES_ENABLED=true
-export URT30T_DISCORD_MAPCYCLE_EMBED_TITLE=Map Cycle
 ```
 
 ### Run the module

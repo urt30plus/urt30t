@@ -17,7 +17,6 @@ from urt30arcon import AsyncRconClient
 
 from . import (
     db,
-    discord30,
     events,
     settings,
 )
@@ -48,7 +47,6 @@ class Bot:
             self._conf.event_queue_max_size
         )
         self._rcon: AsyncRconClient | None = None
-        self._discord: discord30.DiscordClient | None = None
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
             type[events.GameEvent], list[events.EventHandler]
@@ -63,37 +61,22 @@ class Bot:
         logger.info("Python %s", sys.version)
         self._run_background_task(self._run_cleanup())
 
-        if settings.features.log_parsing:
-            if not (games_log := settings.bot.games_log):
-                raise BotError("games_log")
-            self._run_background_task(
-                _tail_log(
-                    log_file=games_log,
-                    event_queue=self._events_queue,
-                    read_delay=self._conf.log_read_delay,
-                    check_truncated=self._conf.log_check_truncated,
-                )
+        if not (games_log := settings.bot.games_log):
+            raise BotError("games_log")
+        self._run_background_task(
+            _tail_log(
+                log_file=Path(games_log),
+                event_queue=self._events_queue,
+                read_delay=self._conf.log_read_delay,
+                check_truncated=self._conf.log_check_truncated,
             )
-        else:
-            logger.warning("Log Parsing is not enabled")
+        )
 
-        if settings.features.event_dispatch:
-            await self._load_plugins()
-            self._event_handlers[events.BotStartup].append(
-                self.on_startup  # type: ignore[arg-type]
-            )
-            await self._dispatch_events()
-        else:
-            logger.warning("Event Dispatch is not enabled")
-            if settings.features.log_parsing:
-                event = await self._events_queue.get()
-                self._events_queue.task_done()
-            else:
-                event = events.LogEvent(type=events.BotStartup)
-
-            await self.on_startup(events.BotStartup.from_log_event(event))
-            while await self._events_queue.get():
-                pass
+        await self._load_plugins()
+        self._event_handlers[events.BotStartup].append(
+            self.on_startup  # type: ignore[arg-type]
+        )
+        await self._dispatch_events()
 
     @property
     def rcon(self) -> AsyncRconClient:
@@ -160,7 +143,7 @@ class Bot:
             else:
                 logger.error("dumpuser failed for slot [%s]", slot)
 
-        if settings.features.log_parsing and not player.db_id:
+        if not player.db_id:
             await db.sync_player(player)
             # TODO: check for bans
 
@@ -199,39 +182,19 @@ class Bot:
 
     async def on_startup(self, event: events.BotStartup) -> None:
         logger.debug(event)
-        if settings.features.command_dispatch or settings.features.discord_updates:
-            self._rcon = await AsyncRconClient.create_client(
-                host=settings.rcon.host,
-                port=settings.rcon.port,
-                password=settings.rcon.password.get_secret_value(),
-                recv_timeout=settings.rcon.recv_timeout,
-            )
-            logger.info(self._rcon)
-            await self.sync_game()
-
-        if settings.features.discord_updates:
-            if not (discord_conf := settings.discord):
-                raise BotError("discord_settings")
-            self._discord = discord30.DiscordClient(
-                bot_user=discord_conf.user,
-                server_name=discord_conf.server_name,
-            )
-            await self._discord.login(discord_conf.token.get_secret_value())
-            self._run_background_task(
-                self._discord_update_mapcycle(self._discord, discord_conf)
-            )
-            self._run_background_task(
-                self._discord_update_gameinfo(self._discord, discord_conf)
-            )
-        else:
-            logger.warning("Discord Updates are not enabled")
+        self._rcon = await AsyncRconClient.create_client(
+            host=settings.rcon.host,
+            port=settings.rcon.port,
+            password=settings.rcon.password,
+            recv_timeout=settings.rcon.recv_timeout,
+        )
+        logger.info(self._rcon)
+        await self.sync_game()
 
     async def on_shutdown(self) -> None:
         await self._unload_plugins()
         if self._rcon:
             self._rcon.close()
-        if self._discord:
-            await self._discord.close()
         logger.info("%s stopped", self)
 
     async def _dispatch_events(self) -> None:
@@ -252,11 +215,10 @@ class Bot:
             event_queue_done()
 
     async def _load_plugins(self) -> None:
-        core_plugins = ["urt30t.plugins.gamestate.Plugin"]
-        if settings.features.command_dispatch:
-            core_plugins.append("urt30t.plugins.commands.Plugin")
-        else:
-            logger.warning("Command Dispatch is not enabled")
+        core_plugins = [
+            "urt30t.plugins.gamestate.Plugin",
+            "urt30t.plugins.commands.Plugin",
+        ]
         plugins_specs = [*core_plugins, *self._conf.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
         plugin_classes: list[type[BotPlugin]] = []
@@ -308,81 +270,6 @@ class Bot:
             raise
         finally:
             await self.on_shutdown()
-
-    async def _discord_update_gameinfo(
-        self, api_client: discord30.DiscordClient, config: settings.DiscordSettings
-    ) -> None:
-        if not config.gameinfo_updates_enabled:
-            logger.warning("Discord GameInfo Updates are not enabled")
-            return
-        channel_name = config.updates_channel_name
-        embed_title = config.gameinfo_embed_title
-        delay = config.gameinfo_update_delay
-        delay_no_updates = config.gameinfo_update_delay_no_updates
-        timeout = config.gameinfo_update_timeout
-        updater = discord30.GameInfoUpdater(
-            api_client=api_client,
-            rcon_client=self.rcon,
-            channel_name=channel_name,
-            embed_title=embed_title,
-            game_host=self._conf.game_host,
-        )
-        logger.info(
-            "%r - delay=[%s], delay_no_updates=[%s], timeout=[%s]",
-            updater,
-            delay,
-            delay_no_updates,
-            timeout,
-        )
-        # delay on first start to allow mapcycle time to complete first
-        await asyncio.sleep(15.0)
-        while True:
-            try:
-                was_updated = await updater.update()
-            except Exception:
-                logger.exception("GameInfo update failed")
-                was_updated = True  # use the shorter delay to retry
-
-            await asyncio.sleep(delay if was_updated else delay_no_updates)
-
-    async def _discord_update_mapcycle(
-        self, api_client: discord30.DiscordClient, config: settings.DiscordSettings
-    ) -> None:
-        if not config.mapcycle_updates_enabled:
-            logger.warning("Discord Mapcycle Updates are not enabled")
-            return
-        if not (mapcycle_file := config.mapcycle_file):
-            mapcycle_file = await self.rcon.mapcycle_file()
-        if not mapcycle_file or not mapcycle_file.exists():
-            logger.warning(
-                "Discord Mapcycle Updates disabled, mapcycle file does not exist: %s",
-                mapcycle_file,
-            )
-            return
-        channel_name = config.updates_channel_name
-        embed_title = config.mapcycle_embed_title
-        delay = config.mapcycle_update_delay
-        timeout = config.mapcycle_update_timeout
-        updater = discord30.MapCycleUpdater(
-            api_client=api_client,
-            rcon_client=self.rcon,
-            channel_name=channel_name,
-            embed_title=embed_title,
-            mapcycle_file=mapcycle_file,
-        )
-        logger.info(
-            "%r - delay=[%s], timeout=[%s], file=[%s]",
-            updater,
-            delay,
-            timeout,
-            mapcycle_file,
-        )
-        while True:
-            try:
-                await updater.update()
-            except Exception:
-                logger.exception("Mapcycle update failed")
-            await asyncio.sleep(delay)
 
     def _run_background_task(self, coro: Coroutine[Any, None, Any]) -> None:
         task = asyncio.create_task(coro)

@@ -158,7 +158,8 @@ class Plugin(BotPlugin):
     async def cmd_help(self, cmd: BotCommand, name: str | None = None) -> None:
         """Provides a list of commands available."""
         if name:
-            if cmd_config := self._find_command_config(name, cmd.player.group):
+            if cmd_config := self._find_command_config(name):
+                # TODO: verify player has access to command via group
                 if doc_string := cmd_config.handler.__doc__:
                     clean_doc = " ".join(x.strip() for x in doc_string.splitlines())
                     message = f'"{clean_doc}"'
@@ -480,7 +481,8 @@ class Plugin(BotPlugin):
             player=player,
             args=cmd_args,
         )
-        if cmd_config := self._find_command_config(name, cmd.player.group):
+        if cmd_config := self._find_command_config(name):
+            # TODO: check player has access to this command via group
             if cmd_config.max_args == 0:
                 cmd_args = []
             elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
@@ -516,18 +518,12 @@ class Plugin(BotPlugin):
         if event.slot == event.target:
             await self.on_say(event)
 
-    def _find_command_config(
-        self, cmd_name: str, group: Group
-    ) -> BotCommandConfig | None:
+    def _find_command_config(self, cmd_name: str) -> BotCommandConfig | None:
         if not (cmd_config := self.bot.commands.get(cmd_name)):
             for c in self.bot.commands.values():
                 if c.alias == cmd_name:
                     cmd_config = c
                     break
-
-        if cmd_config is None or group.value < cmd_config.level.value:
-            return None
-
         return cmd_config
 
     def _find_command_sounds_like(self, cmd_name: str, group: Group) -> set[str]:
