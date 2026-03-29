@@ -68,9 +68,8 @@ elif len(sys.argv) > 1:
 else:
     raise RuntimeError("missing_config_file")
 
-if _config_file:
-    with _config_file.open(mode="rb") as fp:
-        _config = tomllib.load(fp)
+with _config_file.open(mode="rb") as fp:
+    _config = tomllib.load(fp)
 
 bot = BotSettings(**_config["bot"])
 rcon = RconSettings(**_config["rcon"])
