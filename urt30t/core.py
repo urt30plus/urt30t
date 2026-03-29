@@ -46,7 +46,12 @@ class Bot:
         self._events_queue = asyncio.Queue[events.LogEvent](
             self._conf.event_queue_max_size
         )
-        self._rcon: AsyncRconClient | None = None
+        self.rcon = AsyncRconClient(
+            host=settings.rcon.host,
+            port=settings.rcon.port,
+            password=settings.rcon.password,
+            recv_timeout=settings.rcon.recv_timeout,
+        )
         self._plugins: list[BotPlugin] = []
         self._event_handlers: dict[
             type[events.GameEvent], list[events.EventHandler]
@@ -74,16 +79,9 @@ class Bot:
 
         await self._load_plugins()
         self._event_handlers[events.BotStartup].append(
-            self.on_startup  # type: ignore[arg-type]
+            self.on_startup  # ty: ignore[invalid-argument-type]
         )
         await self._dispatch_events()
-
-    @property
-    def rcon(self) -> AsyncRconClient:
-        if self._rcon is None:
-            msg = "Rcon Client is not initialized"
-            raise BotError(msg)
-        return self._rcon
 
     @property
     def command_prefix(self) -> str:
@@ -182,19 +180,12 @@ class Bot:
 
     async def on_startup(self, event: events.BotStartup) -> None:
         logger.debug(event)
-        self._rcon = await AsyncRconClient.create_client(
-            host=settings.rcon.host,
-            port=settings.rcon.port,
-            password=settings.rcon.password,
-            recv_timeout=settings.rcon.recv_timeout,
-        )
-        logger.info(self._rcon)
+        logger.info(self.rcon)
         await self.sync_game()
 
     async def on_shutdown(self) -> None:
         await self._unload_plugins()
-        if self._rcon:
-            self._rcon.close()
+        self.rcon.close()
         logger.info("%s stopped", self)
 
     async def _dispatch_events(self) -> None:
@@ -284,9 +275,9 @@ def bot_command[T](
     level: Group = Group.USER, alias: str | None = None
 ) -> Callable[[T], T]:
     def inner(f: T) -> T:
-        name = f.__name__.removeprefix("cmd_")  # type: ignore[attr-defined]
-        sig = inspect.signature(f)  # type: ignore[arg-type]
-        handler_name = f"{f.__module__}.{f.__qualname__}"  # type: ignore[attr-defined]
+        name = f.__name__.removeprefix("cmd_")  # ty: ignore[unresolved-attribute]
+        sig = inspect.signature(f)  # ty: ignore[invalid-argument-type]
+        handler_name = f"{f.__module__}.{f.__qualname__}"  # ty: ignore[unresolved-attribute]
         if len(sig.parameters) < 2:  # noqa: PLR2004
             msg = (
                 f"Command handler [{handler_name}] must have at"
@@ -327,7 +318,7 @@ def bot_command[T](
                 args_req += 1
             else:
                 args_opt += 1
-        f.bot_command_config = BotCommandConfig(  # type: ignore[attr-defined]
+        f.bot_command_config = BotCommandConfig(  # ty: ignore[unresolved-attribute]
             handler=default_command_handler,
             name=name.lower(),
             level=level,
@@ -350,7 +341,7 @@ def bot_subscribe[T](f: T) -> T:
             if var_name == "return":
                 continue
             if issubclass(var_type, events.GameEvent):
-                f.bot_subscription = var_type  # type: ignore[attr-defined]
+                f.bot_subscription = var_type  # ty: ignore[unresolved-attribute]
                 return f
 
     raise TypeError
