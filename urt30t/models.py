@@ -12,7 +12,7 @@ from urt30arcon import (
     Team,
 )
 
-CommandHandler = Callable[["BotCommand"], Awaitable[None]]
+type CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 RE_COLOR = re.compile(r"(\^\d)")
 

@@ -5,7 +5,7 @@ from typing import NamedTuple, Self
 from . import Team
 from .models import BombAction, FlagAction, HitLocation, HitMode, KillMode
 
-EventHandler = Callable[["GameEvent"], Awaitable[None]]
+type EventHandler = Callable[["GameEvent"], Awaitable[None]]
 
 
 class EventParseError(Exception):
