@@ -1,4 +1,4 @@
-import datetime
+import datetime  # noqa: TC003
 
 import sqlalchemy as sa
 from sqlalchemy.orm import (
