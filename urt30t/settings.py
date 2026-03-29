@@ -1,12 +1,7 @@
 """
 Bot settings and configuration.
 
-See `etc/urt30t.toml` for the default settings. Copy this
-file to another location, can name it anything you like
-(e.g. urt30t.toml) and override the settings are needed.
-Custom settings will be merged with the defaults, so you only
-have to provide the settings you want to change. When running
-the Bot, pass the path to the settings file as the first
+When running the Bot, pass the path to the settings file as the first
 argument, for example:
 
     python -m urt30t /path/to/urt30t.toml
@@ -22,31 +17,29 @@ import tomllib
 import zoneinfo
 from pathlib import Path
 
-__version__ = "2026.03.14"
+__version__ = "2026.03.29"
 
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
-
-DEFAULTS_CONFIG_FILE = PROJECT_ROOT / "etc" / "urt30t.toml"
 
 TRUE_VALUES = frozenset(["true", "1", "yes", "on", "enable"])
 
 
 @dataclasses.dataclass(frozen=True)
 class BotSettings:
-    name: str
-    message_prefix: str
-    time_format: str
-    time_zone_name: str
-    games_log: str
-    db_url: str
-    db_debug: bool
-    event_queue_max_size: int
-    command_prefix: str
-    plugins: list[str]
-    log_read_delay: float
-    log_check_truncated: bool
-    log_replay_from_start: bool
+    name: str = "30+Bot"
+    message_prefix: str = "^0(^230+Bot^0)^7:"
+    time_format: str = "%I:%M%p %Z %m/%d/%y"
+    time_zone_name: str = "UTC"
+    games_log: str = "~/server/q3ut4/games.log"
+    db_url: str = "sqlite+aiosqlite:///~/.config/urt30t.sqlite"
+    db_debug: bool = False
+    event_queue_max_size: int = 100
+    command_prefix: str = "!"
+    plugins: list[str] = dataclasses.field(default_factory=list)
+    log_read_delay: float = 0.25
+    log_check_truncated: bool = False
+    log_replay_from_start: bool = False
 
     @functools.cached_property
     def time_zone(self) -> zoneinfo.ZoneInfo:
@@ -55,34 +48,30 @@ class BotSettings:
 
 @dataclasses.dataclass(frozen=True)
 class RconSettings:
-    host: str
-    port: int
-    password: str
-    recv_timeout: float
+    host: str = "127.0.0.1"
+    port: int = 27960
+    password: str = dataclasses.field(default="", repr=False)
+    recv_timeout: float = 0.25
 
 
 @dataclasses.dataclass(frozen=True)
 class LogLevelSettings:
-    root: str
-    core: str
-    rcon: str
-    plugins: str
+    root: str = "WARNING"
+    core: str = "INFO"
+    rcon: str = "INFO"
+    plugins: str = "INFO"
 
-
-with DEFAULTS_CONFIG_FILE.open(mode="rb") as fp:
-    _config = tomllib.load(fp)
 
 if "URT30T_CONFIG_FILE" in os.environ:
-    _custom_config_file = Path(os.environ["URT30T_CONFIG_FILE"])
+    _config_file = Path(os.environ["URT30T_CONFIG_FILE"])
 elif len(sys.argv) > 1:
-    _custom_config_file = Path(sys.argv[1])
+    _config_file = Path(sys.argv[1])
 else:
-    _custom_config_file = None
+    raise RuntimeError("missing_config_file")
 
-if _custom_config_file:
-    with _custom_config_file.open(mode="rb") as fp:
-        _custom_config = tomllib.load(fp)
-    _config |= _custom_config
+if _config_file:
+    with _config_file.open(mode="rb") as fp:
+        _config = tomllib.load(fp)
 
 bot = BotSettings(**_config["bot"])
 rcon = RconSettings(**_config["rcon"])
