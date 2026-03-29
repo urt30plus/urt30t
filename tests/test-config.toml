@@ -1,5 +1,8 @@
 [bot]
+games_log = "~/server/q3ut4/games.log"
+db_url = "sqlite+aiosqlite:///~/.config/urt30t.sqlite"
 
 [rcon]
+password = "sekret"
 
 [log_levels]

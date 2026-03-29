@@ -7,7 +7,6 @@ argument, for example:
     python -m urt30t /path/to/urt30t.toml
 """
 
-import dataclasses
 import datetime
 import functools
 import logging
@@ -16,6 +15,9 @@ import sys
 import tomllib
 import zoneinfo
 from pathlib import Path
+from typing import Annotated
+
+from pydantic import BaseModel, Field
 
 __version__ = "2026.03.29"
 
@@ -25,18 +27,17 @@ PROJECT_ROOT = PACKAGE_ROOT.parent
 TRUE_VALUES = frozenset(["true", "1", "yes", "on", "enable"])
 
 
-@dataclasses.dataclass(frozen=True)
-class BotSettings:
+class BotSettings(BaseModel, frozen=True):
     name: str = "30+Bot"
     message_prefix: str = "^0(^230+Bot^0)^7:"
     time_format: str = "%I:%M%p %Z %m/%d/%y"
     time_zone_name: str = "UTC"
-    games_log: str = "~/server/q3ut4/games.log"
-    db_url: str = "sqlite+aiosqlite:///~/.config/urt30t.sqlite"
+    games_log: str
+    db_url: str
     db_debug: bool = False
     event_queue_max_size: int = 100
     command_prefix: str = "!"
-    plugins: list[str] = dataclasses.field(default_factory=list)
+    plugins: list[str] = []
     log_read_delay: float = 0.25
     log_check_truncated: bool = False
     log_replay_from_start: bool = False
@@ -46,16 +47,14 @@ class BotSettings:
         return zoneinfo.ZoneInfo(self.time_zone_name)
 
 
-@dataclasses.dataclass(frozen=True)
-class RconSettings:
+class RconSettings(BaseModel, frozen=True):
     host: str = "127.0.0.1"
     port: int = 27960
-    password: str = dataclasses.field(default="", repr=False)
+    password: Annotated[str, Field(repr=False)]
     recv_timeout: float = 0.25
 
 
-@dataclasses.dataclass(frozen=True)
-class LogLevelSettings:
+class LogLevelSettings(BaseModel, frozen=True):
     root: str = "WARNING"
     core: str = "INFO"
     rcon: str = "INFO"
