@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_tasks: set[asyncio.Task[None]] = set()
+
 
 class Bot:
     def __init__(self) -> None:
@@ -52,7 +54,6 @@ class Bot:
         self._command_handlers: dict[str, BotCommandConfig] = {}
         self.game = Game()
         self.server = Server()
-        self._tasks: set[asyncio.Task[None]] = set()
 
     async def run(self) -> None:
         logger.info("%s running", self)
@@ -257,8 +258,8 @@ class Bot:
 
     def _run_background_task(self, coro: Coroutine[Any, None, Any]) -> None:
         task = asyncio.create_task(coro)
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
 
     def __repr__(self) -> str:
         return f"Bot(v{settings.__version__})"
