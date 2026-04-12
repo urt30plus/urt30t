@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import datetime
 import importlib.util
 import inspect
 import logging
@@ -37,10 +36,8 @@ logger = logging.getLogger(__name__)
 
 class Bot:
     def __init__(self) -> None:
-        self._conf = settings.bot
-        self._started_at = datetime.datetime.now(tz=self._conf.time_zone)
         self._events_queue = asyncio.Queue[events.LogEvent](
-            self._conf.event_queue_max_size
+            settings.bot.event_queue_max_size
         )
         self.rcon = AsyncRconClient(
             host=settings.rcon.host,
@@ -68,8 +65,8 @@ class Bot:
             events.tail_log(
                 log_file=Path(games_log),
                 event_queue=self._events_queue,
-                read_delay=self._conf.log_read_delay,
-                check_truncated=self._conf.log_check_truncated,
+                read_delay=settings.bot.log_read_delay,
+                check_truncated=settings.bot.log_check_truncated,
             )
         )
 
@@ -81,11 +78,11 @@ class Bot:
 
     @property
     def command_prefix(self) -> str:
-        return self._conf.command_prefix
+        return settings.bot.command_prefix
 
     @property
     def message_prefix(self) -> str:
-        return self._conf.message_prefix
+        return settings.bot.message_prefix
 
     @property
     def commands(self) -> dict[str, BotCommandConfig]:
@@ -206,7 +203,7 @@ class Bot:
             "urt30t.plugins.gamestate.Plugin",
             "urt30t.plugins.commands.Plugin",
         ]
-        plugins_specs = [*core_plugins, *self._conf.plugins]
+        plugins_specs = [*core_plugins, *settings.bot.plugins]
         logger.info("attempting to load plugin classes: %s", plugins_specs)
         plugin_classes: list[type[BotPlugin]] = []
         for spec in plugins_specs:
@@ -264,7 +261,7 @@ class Bot:
         task.add_done_callback(self._tasks.discard)
 
     def __repr__(self) -> str:
-        return f"Bot(v{settings.__version__}, started={self._started_at})"
+        return f"Bot(v{settings.__version__})"
 
 
 def bot_command[T](
