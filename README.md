@@ -132,7 +132,7 @@ Recommend installing as a tool:
 To run the bot and have it reload when changes are made, use the following
 command:
 
-    watchfiles urt30t.__main__.main
+    watchfiles "uv run -m urt30t ./temp/test-config.toml" urt30t
 
 ## Service
 
