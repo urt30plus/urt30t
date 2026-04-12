@@ -4,14 +4,11 @@ import datetime
 import importlib.util
 import inspect
 import logging
-import os
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-import aiofiles
-import aiofiles.os
 from urt30arcon import AsyncRconClient
 
 from . import (
@@ -68,7 +65,7 @@ class Bot:
         if not (games_log := settings.bot.games_log):
             raise BotError("games_log")
         self._run_background_task(
-            _tail_log(
+            events.tail_log(
                 log_file=Path(games_log),
                 event_queue=self._events_queue,
                 read_delay=self._conf.log_read_delay,
@@ -344,102 +341,3 @@ def bot_subscribe[T](f: T) -> T:
                 return f
 
     raise TypeError
-
-
-async def _tail_log(
-    log_file: Path,
-    *,
-    event_queue: asyncio.Queue[events.LogEvent],
-    read_delay: float,
-    check_truncated: bool,
-) -> None:
-    logger.info("Parsing game log file %s", log_file)
-    if check_truncated and settings.bot.log_replay_from_start:
-        check_truncated = False
-    async with aiofiles.open(log_file, encoding="utf-8") as fp:
-        if settings.bot.log_replay_from_start:
-            cur_pos = await fp.tell()
-        else:
-            cur_pos = await fp.seek(0, os.SEEK_END)
-        logger.info(
-            "read delay [%s], check truncated [%s], current pos [%s]",
-            read_delay,
-            check_truncated,
-            cur_pos,
-        )
-        # signal that we are ready and wait for the event dispatcher to start
-        await event_queue.put(events.LogEvent(type=events.BotStartup))
-        await event_queue.join()
-        while await asyncio.sleep(read_delay, result=True):
-            if not (lines := await fp.readlines()):
-                if not check_truncated:
-                    continue
-
-                # No lines found so check to see if we need to reset our position.
-                # Compare the current cursor position against the current file size,
-                # if the cursor is at a number higher than the game log size, then
-                # there's a problem
-                stats = await aiofiles.os.stat(fp.fileno())
-                cur_pos = await fp.tell()
-                if cur_pos > stats.st_size:
-                    logger.warning(
-                        "Detected a change in size of the log file, "
-                        "before (%s bytes, now %s). "
-                        "The log was either rotated or emptied.",
-                        cur_pos,
-                        stats.st_size,
-                    )
-                    await fp.seek(0, os.SEEK_END)
-                    lines = await fp.readlines()
-
-            for line in lines:
-                if log_event := parse_log_line(line):
-                    await event_queue.put(log_event)
-
-
-def parse_log_line(line: str) -> events.LogEvent | None:
-    """Creates a LogEvent from a raw log entry.
-
-    A typical log entry usually starts with the time (MMM:SS) left padded
-    with spaces, the event followed by a colon and then the even data. Ex.
-
-    This function main purpose is to perform a first pass parsing of the data
-    in order to determine basic information about the log entry, such as
-    the type of event.
-    """
-    game_time = line[:7].strip()
-    rest = line[7:].strip()
-    event_name, sep, data = rest.partition(":")
-    event_type: type[events.GameEvent] | None
-    if sep:
-        event_name = event_name.replace(" ", "")
-        data = data.lstrip()
-        if event_name == "red":
-            event_type = events.TeamScores
-            data = f"red:{data}"
-        elif not (event_type := events.lookup_event_class(event_name)):
-            logger.warning("no event class found: %s", line)
-    elif event_name.startswith("Bombholder is "):
-        event_type = events.BombHolder
-        data = event_name[14:]
-    elif event_name.startswith("Bomb was "):
-        event_type = events.Bomb
-        data = event_name[9:]
-    elif event_name.startswith("Bomb has been "):
-        event_type = events.Bomb
-        data = event_name[14:]
-    elif event_name == "Pop!":
-        event_type = events.Pop
-        data = ""
-    elif event_name.startswith(("Session data", "-----")):
-        event_type = None
-    else:
-        logger.warning("event type not in log line: [%s]", line)
-        event_type = None
-
-    if event_type is None:
-        return None
-
-    event = events.LogEvent(type=event_type, game_time=game_time, data=data)
-    logger.debug(event)
-    return event

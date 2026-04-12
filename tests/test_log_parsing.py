@@ -1,5 +1,5 @@
 from urt30t import events
-from urt30t.core import parse_log_line
+from urt30t.events import parse_log_line
 
 
 def test_log_account_kick() -> None:
