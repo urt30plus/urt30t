@@ -9,10 +9,8 @@ from .core import (
     bot_subscribe,
 )
 from .models import (
-    Bot,
     BotCommand,
     BotError,
-    BotPlugin,
     CommandHandler,
     FlagAction,
     Game,
@@ -23,10 +21,8 @@ from .models import (
 from .settings import __version__
 
 __all__ = [
-    "Bot",
     "BotCommand",
     "BotError",
-    "BotPlugin",
     "CommandHandler",
     "FlagAction",
     "Game",

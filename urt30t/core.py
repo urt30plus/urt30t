@@ -1,290 +1,129 @@
 import asyncio
 import contextlib
+import difflib
 import importlib.util
 import inspect
 import logging
 import sys
 from collections import defaultdict
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 from urt30arcon import AsyncRconClient
 
 from . import (
-    db,
     events,
     settings,
 )
 from .models import (
     BotCommand,
     BotCommandConfig,
-    BotError,
-    BotPlugin,
+    BotContext,
     Game,
     Group,
-    Player,
+    MessageType,
+    PlayerNotFoundError,
     Server,
-    default_command_handler,
+    TooManyPlayersFoundError,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
-    from types import FunctionType
+    from collections.abc import AsyncGenerator, Callable
+    from types import ModuleType
+
+    from .events import EventHandler
 
 logger = logging.getLogger(__name__)
 
-_tasks: set[asyncio.Task[None]] = set()
+_event_queue = asyncio.Queue[events.LogEntry](settings.bot.event_queue_max_size)
+_event_handlers: dict[type[events.Event], list[events.EventHandler]] = defaultdict(list)
+_handler_modules: list[ModuleType] = []
+_command_handlers: dict[str, BotCommandConfig] = {}
+_commands_by_group: dict[str, Group] = {}
 
 
-class Bot:
-    def __init__(self) -> None:
-        self._events_queue = asyncio.Queue[events.LogEvent](
-            settings.bot.event_queue_max_size
+async def run() -> None:
+    logger.info("%s running (Python %s)", settings.__version__, sys.version)
+    load_handler_modules()
+    async with create_context() as ctx:
+        ctx.task_group.create_task(
+            events.tail_log(
+                log_file=settings.bot.games_log,
+                event_queue=_event_queue,
+                read_delay=settings.bot.log_read_delay,
+            )
         )
-        self.rcon = AsyncRconClient(
+        ctx.task_group.create_task(dispatch_events(ctx))
+
+
+@contextlib.asynccontextmanager
+async def create_context() -> AsyncGenerator[BotContext]:
+    async with (
+        asyncio.TaskGroup() as tg,
+        AsyncRconClient(
             host=settings.rcon.host,
             port=settings.rcon.port,
             password=settings.rcon.password,
             recv_timeout=settings.rcon.recv_timeout,
-        )
-        self._plugins: list[BotPlugin] = []
-        self._event_handlers: dict[
-            type[events.GameEvent], list[events.EventHandler]
-        ] = defaultdict(list)
-        self._command_handlers: dict[str, BotCommandConfig] = {}
-        self.game = Game()
-        self.server = Server()
-
-    async def run(self) -> None:
-        logger.info("%s running", self)
-        logger.info("Python %s", sys.version)
-        self._run_background_task(self._run_cleanup())
-
-        if not (games_log := settings.bot.games_log):
-            raise BotError("games_log")
-        self._run_background_task(
-            events.tail_log(
-                log_file=Path(games_log),
-                event_queue=self._events_queue,
-                read_delay=settings.bot.log_read_delay,
-                check_truncated=settings.bot.log_check_truncated,
-            )
+        ) as rcon,
+    ):
+        yield BotContext(
+            game=Game(),
+            server=Server(),
+            rcon=rcon,
+            task_group=tg,
         )
 
-        await self._load_plugins()
-        self._event_handlers[events.BotStartup].append(
-            self.on_startup  # ty: ignore[invalid-argument-type]
-        )
-        await self._dispatch_events()
 
-    @property
-    def command_prefix(self) -> str:
-        return settings.bot.command_prefix
-
-    @property
-    def message_prefix(self) -> str:
-        return settings.bot.message_prefix
-
-    @property
-    def commands(self) -> dict[str, BotCommandConfig]:
-        return self._command_handlers
-
-    async def sync_game(self) -> None:
-        old_game = self.game
-        for _ in range(5):
-            try:
-                rcon_game = await self.rcon.game_info()
-                break
-            except LookupError:
-                await asyncio.sleep(1.5)
+async def dispatch_events(ctx: BotContext) -> None:
+    while log_entry := await _event_queue.get():
+        if handlers := _event_handlers.get(log_entry.kind):
+            event = log_entry.parse_event()
+            for handler in handlers:
+                try:
+                    await handler(ctx, event)
+                except Exception:
+                    logger.exception("%r failed to handle %r", handler, event)
         else:
-            return
-        new_players = {
-            p.slot: Player(
-                slot=p.slot,
-                name=p.clean_name,
-                name_exact=p.name,
-                auth=p.auth,
-                guid=p.guid,
-                team=p.team,
-                # don't carry over kda, we'll track ourselves
-                ip_address=p.ip_address,
-            )
-            for p in rcon_game.players
-        }
-        self.game = new_game = Game(
-            map_name=rcon_game.map_name,
-            type=rcon_game.type,
-            warmup=rcon_game.warmup,
-            match_mode=rcon_game.match_mode,
-            score_red=rcon_game.score_red,
-            score_blue=rcon_game.score_blue,
-            players=new_players,
-        )
-        await asyncio.gather(*[self.sync_player(slot) for slot in new_game.players])
-        logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, self.game)
+            logger.warning("no handler registered for event: %r", log_entry)
 
-    async def sync_player(self, slot: str) -> Player:
-        if not (player := self.player(slot)):
-            raise BotError("invalid_slot", slot)
+        _event_queue.task_done()
 
-        if not (player.guid and player.auth):
-            if userinfo := await self.rcon.dumpuser(slot):
-                player.guid = userinfo["cl_guid"]
-                player.auth = userinfo["authl"]
-            else:
-                logger.error("dumpuser failed for slot [%s]", slot)
 
-        if not player.db_id:
-            await db.sync_player(player)
-            # TODO: check for bans
-
-        logger.info("%r", player)
-        return player
-
-    def player(self, slot: str) -> Player | None:
-        return self.game.players.get(slot)
-
-    def find_player(self, s: str, /) -> list[Player]:
-        if len(s) <= 3 and s.isdigit():  # noqa: PLR2004
-            p = self.player(s)
-            return [p] if p else []
-        needle = s.lower()
-        return [
-            p
-            for p in self.game.players.values()
-            if needle in p.name or needle == p.auth
-        ]
-
-    async def search_players(self, s: str, /) -> list[Player]:
-        if not (s.startswith("@") and s[1:].isdigit()):
-            return self.find_player(s)
-        db_id = s[1:]
-        logger.info("looking up player_db_id: %s", db_id)
-        # TODO: lookup player in the database
-        return []
-
-    async def connect_player(self, player: Player) -> None:
-        self.game.players[player.slot] = player
-
-    async def disconnect_player(self, slot: str) -> None:
-        with contextlib.suppress(KeyError):
-            del self.game.players[slot]
-        # TODO: db updates?
-
-    async def on_startup(self, event: events.BotStartup) -> None:
-        logger.debug(event)
-        logger.info(self.rcon)
-        await self.sync_game()
-
-    async def on_shutdown(self) -> None:
-        await self._unload_plugins()
-        self.rcon.close()
-        logger.info("%s stopped", self)
-
-    async def _dispatch_events(self) -> None:
-        event_queue_get = self._events_queue.get
-        event_queue_done = self._events_queue.task_done
-        handlers_get = self._event_handlers.get
-        while log_event := await event_queue_get():
-            if handlers := handlers_get(log_event.type):
-                event = log_event.game_event()
-                for handler in handlers:
-                    try:
-                        await handler(event)
-                    except Exception:
-                        logger.exception("%r failed to handle %r", handler, event)
-            else:
-                logger.warning("no handler registered for event: %r", log_event)
-
-            event_queue_done()
-
-    async def _load_plugins(self) -> None:
-        core_plugins = [
-            "urt30t.plugins.gamestate.Plugin",
-            "urt30t.plugins.commands.Plugin",
-        ]
-        plugins_specs = [*core_plugins, *settings.bot.plugins]
-        logger.info("attempting to load plugin classes: %s", plugins_specs)
-        plugin_classes: list[type[BotPlugin]] = []
-        for spec in plugins_specs:
-            mod_path, class_name = spec.rsplit(".", maxsplit=1)
-            mod = importlib.import_module(mod_path)
-            plugin_class = getattr(mod, class_name)
-            if not issubclass(plugin_class, BotPlugin):
-                logger.error("%s is not a BotPlugin subclass", plugin_class)
-            else:
-                plugin_classes.append(plugin_class)
-
-        # TODO: sort plugins based on dependencies
-
-        for cls in plugin_classes:
-            obj = cls(bot=self)
-            self._register_plugin(obj)
-            self._plugins.append(obj)
-
-        for p in self._plugins:
-            await p.plugin_load()
-
-    def _register_plugin(self, plugin: BotPlugin) -> None:
-        for _, meth in inspect.getmembers(
-            plugin, predicate=inspect.iscoroutinefunction
-        ):
-            if subscription := getattr(meth.__func__, "bot_subscription", None):  # ty: ignore[unresolved-attribute]
-                self._event_handlers[subscription].append(meth)  # ty: ignore[invalid-argument-type]
-                logger.info("added subscription %s - %s", subscription, meth)
-
-            if cmd_config := getattr(meth.__func__, "bot_command_config", None):  # ty: ignore[unresolved-attribute]
-                resolved = cmd_config._replace(handler=meth)
-                self._command_handlers[resolved.name] = resolved
-                logger.info("added %r", resolved)
-
-    async def _unload_plugins(self) -> None:
-        for p in self._plugins:
-            try:
-                await p.plugin_unload()
-            except Exception:
-                logger.exception("Plugin %s failed to unload", p)
-
-    async def _run_cleanup(self) -> None:
-        fut: asyncio.Future[None] = asyncio.Future()
-        try:
-            await fut
-        except asyncio.CancelledError:
-            logger.info("Shutdown cleanup has been triggered")
-            raise
-        finally:
-            await self.on_shutdown()
-
-    def _run_background_task(self, coro: Coroutine[Any, None, Any]) -> None:
-        task = asyncio.create_task(coro)
-        _tasks.add(task)
-        task.add_done_callback(_tasks.discard)
-
-    def __repr__(self) -> str:
-        return f"Bot(v{settings.__version__})"
+def load_handler_modules() -> None:
+    core_modules = [
+        "urt30t.handlers.gamestate",
+        "urt30t.handlers.commands",
+    ]
+    mod_specs = [*core_modules, *settings.bot.modules]
+    logger.info("attempting to load plugin modules: %s", mod_specs)
+    for spec in mod_specs:
+        mod = importlib.import_module(spec)
+        _handler_modules.append(mod)
 
 
 def bot_command[T](
     level: Group = Group.USER, alias: str | None = None
 ) -> Callable[[T], T]:
     def inner(f: T) -> T:
-        name = f.__name__.removeprefix("cmd_")  # ty: ignore[unresolved-attribute]
-        sig = inspect.signature(f)  # ty: ignore[invalid-argument-type]
+        if not inspect.iscoroutinefunction(f):
+            msg = "Command handler function must be async"
+            raise TypeError(msg)
+
+        sig = inspect.signature(f)
+
         handler_name = f"{f.__module__}.{f.__qualname__}"  # ty: ignore[unresolved-attribute]
-        if len(sig.parameters) < 2:  # noqa: PLR2004
+        if len(sig.parameters) == 0:
             msg = (
                 f"Command handler [{handler_name}] must have at"
                 " least one parameter. Typically this is named `cmd` and "
                 " annotated as `BotCommand`. For example:\n"
-                "\tdef cmd_foobar(self, cmd: BotCommand) -> None:"
+                "\tasync def cmd_foobar(self, cmd: BotCommand) -> None:"
             )
             raise TypeError(msg)
+
         args_req = args_opt = 0
         for i, p in enumerate(sig.parameters.values()):
             if i == 0:
-                continue
-            if i == 1:
                 if isinstance(p.annotation, type) and not issubclass(
                     p.annotation, BotCommand
                 ):
@@ -312,30 +151,142 @@ def bot_command[T](
                 args_req += 1
             else:
                 args_opt += 1
-        f.bot_command_config = BotCommandConfig(  # ty: ignore[unresolved-attribute]
-            handler=default_command_handler,
-            name=name.lower(),
+
+        name = f.__name__.removeprefix("cmd_").lower()  # ty: ignore[unresolved-attribute]
+        _command_handlers[name] = BotCommandConfig(
+            handler=f,
+            name=name,
             level=level,
             alias=alias,
             args_required=args_req,
             args_optional=args_opt,
         )
-        return f
+        return f  # ty: ignore[invalid-return-type]
 
     return inner
 
 
-def bot_subscribe[T](f: T) -> T:
-    func: FunctionType = cast("FunctionType", f)
-    if (
-        len(func.__annotations__) == 2  # noqa: PLR2004
-        and func.__annotations__["return"] is None
-    ):
-        for var_name, var_type in func.__annotations__.items():
-            if var_name == "return":
-                continue
-            if issubclass(var_type, events.GameEvent):
-                f.bot_subscription = var_type  # ty: ignore[unresolved-attribute]
-                return f
+def bot_subscribe(f: EventHandler) -> EventHandler:
+    if not inspect.iscoroutinefunction(f):
+        msg = "Handler function must be async"
+        raise TypeError(msg)
+    sig = inspect.signature(f)
+    if len(sig.parameters) != 2:  # noqa: PLR2004
+        msg = "Handler must accept 2 parameters - context and event."
+        raise TypeError(msg)
+    event_param = list(sig.parameters.values())[2 - 1]
+    if not issubclass(event_param.annotation, events.Event):
+        msg = "Handler must accept an Event type as the second parameter."
+        raise TypeError(msg)
+    _event_handlers[event_param.annotation].append(f)
+    return f
 
-    raise TypeError
+
+@bot_subscribe
+async def on_say(ctx: BotContext, event: events.Say) -> None:
+    if not event.text.startswith(settings.bot.command_prefix):
+        return
+    logger.info(event)
+    if not (player := ctx.game.players.get(event.slot)):
+        logger.warning("no player found at: %s", event.slot)
+        return
+    cmd_and_data = event.text.lstrip(settings.bot.command_prefix)
+    prefix_count = len(event.text) - len(cmd_and_data)
+    if prefix_count not in MessageType:
+        logger.warning("too many command prefixes, ignoring: %s", event.text)
+        return
+    message_type = MessageType(prefix_count)
+    name, _, data = cmd_and_data.partition(" ")
+    cmd_args = [x.strip() for x in data.split()]
+    cmd = BotCommand(
+        context=ctx,
+        name=name,
+        message_type=message_type,
+        player=player,
+        args=cmd_args,
+    )
+    if cmd_config := _find_command_config(name):
+        # TODO: check player has access to this command via group
+        if cmd_config.max_args == 0:
+            cmd_args = []
+        elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
+            msg = (
+                f"invalid arguments, expected between {cmd_config.min_args} "
+                f"and {cmd_config.max_args} but got {len(cmd_args)}"
+            )
+            logger.error(msg)
+            msg += f" see !help {name}"
+            await cmd.message(msg, MessageType.PRIVATE)
+            return
+        try:
+            await cmd_config.handler(cmd, *cmd_args)
+        except PlayerNotFoundError as exc:
+            await cmd.message(f"Player not found: {exc}", MessageType.PRIVATE)
+        except TooManyPlayersFoundError as exc:
+            choices = ", ".join(f"{p.name}" for p in exc.players)
+            await cmd.message(f"Which player? {choices}", MessageType.PRIVATE)
+    else:
+        logger.warning("no command config found: %s", event)
+        if candidates := _find_command_sounds_like(name, cmd.player.group):
+            msg = f"did you mean? {', '.join(candidates)}"
+        else:
+            msg = f"command [{name}] not found"
+        await cmd.message(msg, MessageType.PRIVATE)
+
+
+@bot_subscribe
+async def on_say_team(ctx: BotContext, event: events.SayTeam) -> None:
+    await on_say(ctx, event)
+
+
+@bot_subscribe
+async def on_say_tell(ctx: BotContext, event: events.SayTell) -> None:
+    if event.slot == event.target:
+        await on_say(ctx, event)
+
+
+@bot_command(level=Group.GUEST)
+async def cmd_help(cmd: BotCommand, name: str | None = None) -> None:
+    """Provides a list of commands available."""
+    if name:
+        if cmd_config := _find_command_config(name):
+            # TODO: verify player has access to command via group
+            if doc_string := cmd_config.handler.__doc__:
+                clean_doc = " ".join(x.strip() for x in doc_string.splitlines())
+                message = f'"{clean_doc}"'
+            else:
+                message = "no help found for this command"
+        else:
+            message = f"command [{name}] not found"
+    else:
+        # TODO: get list of commands available to the player that issued command
+        #   or make sure the user has access to the target command
+        message = f"there are {len(_command_handlers)} commands total"
+
+    await cmd.message(message)
+
+
+def _find_command_config(cmd_name: str) -> BotCommandConfig | None:
+    if not (cmd_config := _command_handlers.get(cmd_name)):
+        for c in _command_handlers.values():
+            if c.alias == cmd_name:
+                cmd_config = c
+                break
+    return cmd_config
+
+
+def _find_command_sounds_like(cmd_name: str, group: Group) -> set[str]:
+    if len(cmd_name) <= 1:
+        return set()
+
+    result = {
+        name
+        for name, level in _commands_by_group.items()
+        if cmd_name in name and level <= group
+    }
+
+    # catch misspellings
+    if more := difflib.get_close_matches(cmd_name, _commands_by_group):
+        result.update(x for x in more if _commands_by_group[str(x)] <= group)
+
+    return result

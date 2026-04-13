@@ -15,4 +15,4 @@ ty check
 
 export URT30T_CONFIG_FILE="./tests/test-config.toml"
 
-pytest
+pytest -p no:cacheprovider

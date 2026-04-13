@@ -1,10 +1,10 @@
-import abc
 import dataclasses
 import enum
+import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
-from typing import NamedTuple, Protocol
+from typing import TYPE_CHECKING, NamedTuple
 
 from urt30arcon import (
     AsyncRconClient,
@@ -12,13 +12,16 @@ from urt30arcon import (
     Team,
 )
 
+from . import settings
+
+if TYPE_CHECKING:
+    import asyncio
+
 type CommandHandler = Callable[["BotCommand"], Awaitable[None]]
 
 RE_COLOR = re.compile(r"(\^\d)")
 
-
-async def default_command_handler(_: BotCommand) -> None:
-    raise NotImplementedError
+logger = logging.getLogger(__name__)
 
 
 class BotError(Exception):
@@ -233,6 +236,15 @@ class Game:
     score_blue: int = 0
     players: dict[str, Player] = dataclasses.field(default_factory=dict)
 
+    def find_player(self, s: str, /) -> list[Player]:
+        if len(s) <= 3 and s.isdigit():  # noqa: PLR2004
+            p = self.players.get(s)
+            return [p] if p else []
+        needle = s.lower()
+        return [
+            p for p in self.players.values() if needle in p.name or needle == p.auth
+        ]
+
     @property
     def spectators(self) -> list[Player]:
         return self._get_team(Team.SPECTATOR)
@@ -270,76 +282,70 @@ class BotCommandConfig(NamedTuple):
         return self.args_required + self.args_optional
 
 
-class Bot(Protocol):
+@dataclasses.dataclass
+class BotContext:
     game: Game
     server: Server
+    rcon: AsyncRconClient
+    task_group: asyncio.TaskGroup
 
-    @property
-    @abc.abstractmethod
-    def rcon(self) -> AsyncRconClient: ...
+    async def sync_player(self, slot: str) -> Player:
+        if not (player := self.game.players.get(slot)):
+            raise BotError("invalid_slot", slot)
 
-    @property
-    @abc.abstractmethod
-    def command_prefix(self) -> str: ...
+        if not (player.guid and player.auth):
+            if userinfo := await self.rcon.dumpuser(slot):
+                player.guid = userinfo["cl_guid"]
+                player.auth = userinfo["authl"]
+            else:
+                logger.error("dumpuser failed for slot [%s]", slot)
 
-    @property
-    @abc.abstractmethod
-    def message_prefix(self) -> str: ...
+        if not player.db_id:
+            # TODO: await db.sync_player(player)
+            # TODO: check for bans
+            pass
 
-    @property
-    @abc.abstractmethod
-    def commands(self) -> dict[str, BotCommandConfig]: ...
-
-    async def connect_player(self, player: Player) -> None: ...
-
-    async def disconnect_player(self, slot: str) -> None: ...
-
-    def player(self, slot: str) -> Player | None: ...
-
-    def find_player(self, s: str, /) -> list[Player]: ...
-
-    async def search_players(self, s: str, /) -> list[Player]: ...
-
-    async def sync_player(self, slot: str) -> Player: ...
-
-
-class BotPlugin:
-    def __init__(self, bot: Bot) -> None:
-        self.bot = bot
-
-    async def plugin_load(self) -> None:
-        pass
-
-    async def plugin_unload(self) -> None:
-        pass
-
-    def get_player(self, s: str) -> Player:
-        if players := self.bot.find_player(s):
-            if len(players) == 1:
-                return players[0]
-            raise TooManyPlayersFoundError(players)
-        raise PlayerNotFoundError(s)
+        logger.info("%r", player)
+        return player
 
 
 @dataclasses.dataclass
 class BotCommand:
-    plugin: BotPlugin
+    context: BotContext
     name: str
     message_type: MessageType
     player: Player
     args: list[str] = dataclasses.field(default_factory=list)
 
+    def get_player(self, s: str) -> Player:
+        if players := self.find_player(s):
+            if len(players) == 1:
+                return players[0]
+            raise TooManyPlayersFoundError(players)
+        raise PlayerNotFoundError(s)
+
+    def find_player(self, s: str, /) -> list[Player]:
+        if len(s) <= 3 and s.isdigit():  # noqa: PLR2004
+            p = self.get_player(s)
+            return [p] if p else []
+        needle = s.lower()
+        return [
+            p
+            for p in self.context.game.players.values()
+            if needle in p.name or needle == p.auth
+        ]
+
     async def message(
         self, message: str, message_type: MessageType | None = None
     ) -> None:
-        prefix = self.plugin.bot.message_prefix + " "
+        prefix = settings.bot.message_prefix + " "
         if message_type is None:
             message_type = self.message_type
         if message_type is MessageType.PRIVATE:
             prefix += "^8[pm]^7 "
             message = prefix + message
-            await self.plugin.bot.rcon.tell(slot=self.player.slot, message=message)
+            await self.context.rcon.tell(slot=self.player.slot, message=message)
         elif message_type is MessageType.LOUD:
-            await self.plugin.bot.rcon.say(message=prefix + message)
+            await self.context.rcon.say(message=prefix + message)
         else:
-            await self.plugin.bot.rcon.bigtext(message=prefix + message)
+            await self.context.rcon.bigtext(message=prefix + message)

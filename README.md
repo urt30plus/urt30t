@@ -49,18 +49,11 @@ event_queue_max_size = 100
 # for example, $balance
 command_prefix = "!"
 
-# list of plugins to enable on startup
-plugins = []
+# list of handler modules to enable on startup
+modules = []
 
 # delay between reading lines from the games.log
 log_read_delay = 0.250
-
-# if you rotote the games.log, then enable this setting
-log_check_truncated = false
-
-# if enabled will read all events in the games.log, the default
-# setting is to only read new lines
-log_replay_from_start = false
 
 [rcon]
 host = "127.0.0.1"
@@ -72,7 +65,7 @@ recv_timeout = 0.25
 root = "WARNING"
 core = "INFO"
 rcon = "INFO"
-plugins = "INFO"
+handlers = "INFO"
 ```
 
 ## Running

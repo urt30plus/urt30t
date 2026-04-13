@@ -17,9 +17,9 @@ import zoneinfo
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FilePath
 
-__version__ = "2026.03.29"
+__version__ = "2026.04.18"
 
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
@@ -32,15 +32,13 @@ class BotSettings(BaseModel, frozen=True):
     message_prefix: str = "^0(^230+Bot^0)^7:"
     time_format: str = "%I:%M%p %Z %m/%d/%y"
     time_zone_name: str = "UTC"
-    games_log: str
+    games_log: FilePath
     db_url: str
     db_debug: bool = False
     event_queue_max_size: int = 100
     command_prefix: str = "!"
-    plugins: list[str] = []
+    modules: list[str] = []
     log_read_delay: float = 0.25
-    log_check_truncated: bool = False
-    log_replay_from_start: bool = False
 
     @functools.cached_property
     def time_zone(self) -> zoneinfo.ZoneInfo:
@@ -58,7 +56,7 @@ class LogLevelSettings(BaseModel, frozen=True):
     root: str = "WARNING"
     core: str = "INFO"
     rcon: str = "INFO"
-    plugins: str = "INFO"
+    handlers: str = "INFO"
 
 
 if "URT30T_CONFIG_FILE" in os.environ:
@@ -81,7 +79,7 @@ logging.basicConfig(
 logging.getLogger().setLevel(log_levels.root)
 logging.getLogger("urt30t.core").setLevel(log_levels.core)
 logging.getLogger("urt30t.rcon").setLevel(log_levels.rcon)
-logging.getLogger("urt30t.plugins").setLevel(log_levels.plugins)
+logging.getLogger("urt30t.handlers").setLevel(log_levels.handlers)
 
 logger = logging.getLogger(__name__)
 
