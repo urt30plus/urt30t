@@ -9,7 +9,7 @@ commands and other features are not implemented yet.
 ## Requirements
 
 - Urban Terror 4.3.4
-- Requires Python 3.13+
+- Requires Python 3.14
 
 ## Configuration
 
@@ -80,22 +80,9 @@ runtime dependencies:
 
     uv sync --upgrade --no-dev
 
-### Run the module
+### Run the Bot
 
-    uv run -m urt30t
-
-Or you can run it from the virtualenv:
-
-Linux:
-
-    .venv/bin/python -m urt30t
-
-Windows:
-
-    .venv\Scripts\python -m urt30t
-
-To set up as a `systemd` service, see the sample `etc/systemd/urt30t.service`
-file.
+    uv run -m urt30t config.toml
 
 ## Developing
 
@@ -125,9 +112,9 @@ Recommend installing as a tool:
 To run the bot and have it reload when changes are made, use the following
 command:
 
-    watchfiles "uv run -m urt30t ./temp/test-config.toml" urt30t
+    watchfiles "uv run -m urt30t config.toml" urt30t
 
-## Service
+## Linux Service
 
 ```systemd
 [Unit]
