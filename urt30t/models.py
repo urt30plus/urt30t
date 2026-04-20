@@ -3,7 +3,7 @@ import enum
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Protocol
 
 from urt30arcon import (
     AsyncRconClient,
@@ -13,15 +13,17 @@ from urt30arcon import (
 
 from . import settings
 
-TYPE_CHECKING = False
 if TYPE_CHECKING:
     import asyncio
-
-type CommandHandler = Callable[["BotCommand"], Awaitable[None]]
+    from collections.abc import Awaitable
 
 RE_COLOR = re.compile(r"(\^\d)")
 
 logger = logging.getLogger(__name__)
+
+
+class CommandHandler(Protocol):
+    def __call__(self, cmd: BotCommand, *args: str) -> Awaitable[None]: ...
 
 
 class BotError(Exception):
