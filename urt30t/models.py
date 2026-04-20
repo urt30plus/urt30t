@@ -4,7 +4,6 @@ import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, NamedTuple
 
 from urt30arcon import (
     AsyncRconClient,
@@ -14,6 +13,7 @@ from urt30arcon import (
 
 from . import settings
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     import asyncio
 
@@ -265,7 +265,8 @@ class Game:
         return [p for p in self.players.values() if p.team is team]
 
 
-class BotCommandConfig(NamedTuple):
+@dataclasses.dataclass
+class BotCommandConfig:
     handler: CommandHandler
     name: str
     level: Group = Group.USER
