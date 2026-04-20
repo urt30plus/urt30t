@@ -1,16 +1,25 @@
 import asyncio
+import difflib
 import logging
 
 from urt30t import (
+    BotCommand,
     FlagAction,
     Game,
     GameType,
+    Group,
     Player,
     Team,
     bot_subscribe,
     events,
+    settings,
 )
-from urt30t.models import BotContext  # noqa: TC001
+from urt30t.models import (
+    BotContext,
+    MessageType,
+    PlayerNotFoundError,
+    TooManyPlayersFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,3 +213,84 @@ async def on_survivor_winner(ctx: BotContext, event: events.SurvivorWinner) -> N
         ctx.game.score_red += 1
     else:
         ctx.game.score_blue += 1
+
+
+@bot_subscribe
+async def on_say(ctx: BotContext, event: events.Say) -> None:
+    if not event.text.startswith(settings.bot.command_prefix):
+        return
+    logger.info(event)
+    if not (player := ctx.game.players.get(event.slot)):
+        logger.warning("no player found at: %s", event.slot)
+        return
+    cmd_and_data = event.text.lstrip(settings.bot.command_prefix)
+    prefix_count = len(event.text) - len(cmd_and_data)
+    if prefix_count not in MessageType:
+        logger.warning("too many command prefixes, ignoring: %s", event.text)
+        return
+    message_type = MessageType(prefix_count)
+    name, _, data = cmd_and_data.partition(" ")
+    cmd_args = [x.strip() for x in data.split()]
+    cmd = BotCommand(
+        context=ctx,
+        name=name,
+        message_type=message_type,
+        player=player,
+        args=cmd_args,
+    )
+    if cmd_config := ctx.find_command_config(name):
+        # TODO: check player has access to this command via group
+        if cmd_config.max_args == 0:
+            cmd_args = []
+        elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
+            msg = (
+                f"invalid arguments, expected between {cmd_config.min_args} "
+                f"and {cmd_config.max_args} but got {len(cmd_args)}"
+            )
+            logger.error(msg)
+            msg += f" see !help {name}"
+            await cmd.message(msg, MessageType.PRIVATE)
+            return
+        try:
+            await cmd_config.handler(cmd, *cmd_args)
+        except PlayerNotFoundError as exc:
+            await cmd.message(f"Player not found: {exc}", MessageType.PRIVATE)
+        except TooManyPlayersFoundError as exc:
+            choices = ", ".join(f"{p.name}" for p in exc.players)
+            await cmd.message(f"Which player? {choices}", MessageType.PRIVATE)
+    else:
+        logger.warning("no command config found: %s", event)
+        if candidates := _find_command_sounds_like(ctx, name, cmd.player.group):
+            msg = f"did you mean? {', '.join(candidates)}"
+        else:
+            msg = f"command [{name}] not found"
+        await cmd.message(msg, MessageType.PRIVATE)
+
+
+@bot_subscribe
+async def on_say_team(ctx: BotContext, event: events.SayTeam) -> None:
+    await on_say(ctx, event)
+
+
+@bot_subscribe
+async def on_say_tell(ctx: BotContext, event: events.SayTell) -> None:
+    if event.slot == event.target:
+        await on_say(ctx, event)
+
+
+def _find_command_sounds_like(ctx: BotContext, cmd_name: str, group: Group) -> set[str]:
+    if len(cmd_name) <= 1:
+        return set()
+
+    commands_by_group = {k: v.level for k, v in ctx.commands.items()}
+    result = {
+        name
+        for name, level in commands_by_group.items()
+        if cmd_name in name and level <= group
+    }
+
+    # catch misspellings
+    if more := difflib.get_close_matches(cmd_name, commands_by_group):
+        result.update(x for x in more if commands_by_group[str(x)] <= group)
+
+    return result

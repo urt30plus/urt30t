@@ -151,6 +151,27 @@ async def fraglimit(cmd: BotCommand, limit: str | None = None) -> None:
     await _set_var_or_show_var(cmd, "fraglimit", limit)
 
 
+@bot_command(level=Group.GUEST)
+async def cmd_help(cmd: BotCommand, name: str | None = None) -> None:
+    """Provides a list of commands available."""
+    if name:
+        if cmd_config := cmd.context.find_command_config(name):
+            # TODO: verify player has access to command via group
+            if doc_string := cmd_config.handler.__doc__:
+                clean_doc = " ".join(x.strip() for x in doc_string.splitlines())
+                message = f'"{clean_doc}"'
+            else:
+                message = "no help found for this command"
+        else:
+            message = f"command [{name}] not found"
+    else:
+        # TODO: get list of commands available to the player that issued command
+        #   or make sure the user has access to the target command
+        message = f"there are {len(cmd.context.commands)} commands total"
+
+    await cmd.message(message)
+
+
 @bot_command(Group.GUEST)
 async def iamgod(cmd: BotCommand) -> None:
     """

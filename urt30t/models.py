@@ -291,6 +291,7 @@ class BotContext:
     server: Server
     rcon: AsyncRconClient
     task_group: asyncio.TaskGroup
+    commands: dict[str, BotCommandConfig]
 
     async def sync_player(self, slot: str) -> Player:
         if not (player := self.game.players.get(slot)):
@@ -310,6 +311,14 @@ class BotContext:
 
         logger.info("%r", player)
         return player
+
+    def find_command_config(self, cmd_name: str) -> BotCommandConfig | None:
+        if not (cmd_config := self.commands.get(cmd_name)):
+            for c in self.commands.values():
+                if c.alias == cmd_name:
+                    cmd_config = c
+                    break
+        return cmd_config
 
 
 @dataclasses.dataclass

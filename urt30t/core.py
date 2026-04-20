@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-import difflib
 import importlib.util
 import inspect
 import logging
@@ -20,10 +19,7 @@ from .models import (
     BotContext,
     Game,
     Group,
-    MessageType,
-    PlayerNotFoundError,
     Server,
-    TooManyPlayersFoundError,
 )
 
 if TYPE_CHECKING:
@@ -38,7 +34,6 @@ _event_queue = asyncio.Queue[events.LogEntry](settings.bot.event_queue_max_size)
 _event_handlers: dict[type[events.Event], list[events.EventHandler]] = defaultdict(list)
 _handler_modules: list[ModuleType] = []
 _command_handlers: dict[str, BotCommandConfig] = {}
-_commands_by_group: dict[str, Group] = {}
 
 
 async def run() -> None:
@@ -71,6 +66,7 @@ async def create_context() -> AsyncGenerator[BotContext]:
             server=Server(),
             rcon=rcon,
             task_group=tg,
+            commands=_command_handlers,
         )
 
 
@@ -180,113 +176,3 @@ def bot_subscribe(f: EventHandler) -> EventHandler:
         raise TypeError(msg)
     _event_handlers[event_param.annotation].append(f)
     return f
-
-
-@bot_subscribe
-async def on_say(ctx: BotContext, event: events.Say) -> None:
-    if not event.text.startswith(settings.bot.command_prefix):
-        return
-    logger.info(event)
-    if not (player := ctx.game.players.get(event.slot)):
-        logger.warning("no player found at: %s", event.slot)
-        return
-    cmd_and_data = event.text.lstrip(settings.bot.command_prefix)
-    prefix_count = len(event.text) - len(cmd_and_data)
-    if prefix_count not in MessageType:
-        logger.warning("too many command prefixes, ignoring: %s", event.text)
-        return
-    message_type = MessageType(prefix_count)
-    name, _, data = cmd_and_data.partition(" ")
-    cmd_args = [x.strip() for x in data.split()]
-    cmd = BotCommand(
-        context=ctx,
-        name=name,
-        message_type=message_type,
-        player=player,
-        args=cmd_args,
-    )
-    if cmd_config := _find_command_config(name):
-        # TODO: check player has access to this command via group
-        if cmd_config.max_args == 0:
-            cmd_args = []
-        elif not cmd_config.min_args <= len(cmd_args) <= cmd_config.max_args:
-            msg = (
-                f"invalid arguments, expected between {cmd_config.min_args} "
-                f"and {cmd_config.max_args} but got {len(cmd_args)}"
-            )
-            logger.error(msg)
-            msg += f" see !help {name}"
-            await cmd.message(msg, MessageType.PRIVATE)
-            return
-        try:
-            await cmd_config.handler(cmd, *cmd_args)
-        except PlayerNotFoundError as exc:
-            await cmd.message(f"Player not found: {exc}", MessageType.PRIVATE)
-        except TooManyPlayersFoundError as exc:
-            choices = ", ".join(f"{p.name}" for p in exc.players)
-            await cmd.message(f"Which player? {choices}", MessageType.PRIVATE)
-    else:
-        logger.warning("no command config found: %s", event)
-        if candidates := _find_command_sounds_like(name, cmd.player.group):
-            msg = f"did you mean? {', '.join(candidates)}"
-        else:
-            msg = f"command [{name}] not found"
-        await cmd.message(msg, MessageType.PRIVATE)
-
-
-@bot_subscribe
-async def on_say_team(ctx: BotContext, event: events.SayTeam) -> None:
-    await on_say(ctx, event)
-
-
-@bot_subscribe
-async def on_say_tell(ctx: BotContext, event: events.SayTell) -> None:
-    if event.slot == event.target:
-        await on_say(ctx, event)
-
-
-@bot_command(level=Group.GUEST)
-async def cmd_help(cmd: BotCommand, name: str | None = None) -> None:
-    """Provides a list of commands available."""
-    if name:
-        if cmd_config := _find_command_config(name):
-            # TODO: verify player has access to command via group
-            if doc_string := cmd_config.handler.__doc__:
-                clean_doc = " ".join(x.strip() for x in doc_string.splitlines())
-                message = f'"{clean_doc}"'
-            else:
-                message = "no help found for this command"
-        else:
-            message = f"command [{name}] not found"
-    else:
-        # TODO: get list of commands available to the player that issued command
-        #   or make sure the user has access to the target command
-        message = f"there are {len(_command_handlers)} commands total"
-
-    await cmd.message(message)
-
-
-def _find_command_config(cmd_name: str) -> BotCommandConfig | None:
-    if not (cmd_config := _command_handlers.get(cmd_name)):
-        for c in _command_handlers.values():
-            if c.alias == cmd_name:
-                cmd_config = c
-                break
-    return cmd_config
-
-
-def _find_command_sounds_like(cmd_name: str, group: Group) -> set[str]:
-    if len(cmd_name) <= 1:
-        return set()
-
-    result = {
-        name
-        for name, level in _commands_by_group.items()
-        if cmd_name in name and level <= group
-    }
-
-    # catch misspellings
-    if more := difflib.get_close_matches(cmd_name, _commands_by_group):
-        result.update(x for x in more if _commands_by_group[str(x)] <= group)
-
-    return result
