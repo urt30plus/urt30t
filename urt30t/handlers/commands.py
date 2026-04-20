@@ -26,7 +26,7 @@ team_map = {
 
 
 @bot_command(Group.MODERATOR)
-async def aliases(cmd: BotCommand, pid: str) -> None:
+async def cmd_aliases(cmd: BotCommand, pid: str) -> None:
     """
     <player> - list all aliases used by the given player
     """
@@ -35,7 +35,7 @@ async def aliases(cmd: BotCommand, pid: str) -> None:
 
 
 @bot_command(Group.ADMIN, alias="bal")
-async def balance(cmd: BotCommand) -> None:
+async def cmd_balance(cmd: BotCommand) -> None:
     """
     Move as few players as needed to create teams balanced by numbers and skill.
     """
@@ -44,7 +44,7 @@ async def balance(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def ban(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
+async def cmd_ban(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
     """
     <player> [<reason>] - ban a player
     """
@@ -53,7 +53,7 @@ async def ban(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def baninfo(cmd: BotCommand, pid: str) -> None:
+async def cmd_baninfo(cmd: BotCommand, pid: str) -> None:
     """
     <player> - displays a player's ban information
     """
@@ -62,7 +62,7 @@ async def baninfo(cmd: BotCommand, pid: str) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def bigtext(cmd: BotCommand, message: str) -> None:
+async def cmd_bigtext(cmd: BotCommand, message: str) -> None:
     """
     <message> - prints a bold message in the center of all screens
     """
@@ -70,7 +70,7 @@ async def bigtext(cmd: BotCommand, message: str) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def caplimit(cmd: BotCommand, limit: str | None = None) -> None:
+async def cmd_caplimit(cmd: BotCommand, limit: str | None = None) -> None:
     """
     [<limit>] - if limit is given, sets the cvar else returns the current setting
     """
@@ -78,7 +78,7 @@ async def caplimit(cmd: BotCommand, limit: str | None = None) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def ci(cmd: BotCommand, pid: str) -> None:
+async def cmd_ci(cmd: BotCommand, pid: str) -> None:
     """
     <player> - kick a client that has an interrupted connection
     """
@@ -99,7 +99,7 @@ async def ci(cmd: BotCommand, pid: str) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def clear(cmd: BotCommand, pid: str | None = None) -> None:
+async def cmd_clear(cmd: BotCommand, pid: str | None = None) -> None:
     """
     [<player>] - clear all warnings
     """
@@ -108,7 +108,7 @@ async def clear(cmd: BotCommand, pid: str | None = None) -> None:
 
 
 @bot_command(Group.ADMIN, alias="maprotate")
-async def cyclemap(cmd: BotCommand) -> None:
+async def cmd_cyclemap(cmd: BotCommand) -> None:
     """
     cycle to the next map
     """
@@ -116,7 +116,7 @@ async def cyclemap(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def force(cmd: BotCommand, pid: str, team: str) -> None:
+async def cmd_force(cmd: BotCommand, pid: str, team: str) -> None:
     """
     <player> <[r]ed/[b]lue/[s]pec> - Move a player to the specified team.
     """
@@ -144,7 +144,7 @@ async def force(cmd: BotCommand, pid: str, team: str) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def fraglimit(cmd: BotCommand, limit: str | None = None) -> None:
+async def cmd_fraglimit(cmd: BotCommand, limit: str | None = None) -> None:
     """
     [<limit>] - if limit is given, sets the cvar else returns the current setting
     """
@@ -173,7 +173,7 @@ async def cmd_help(cmd: BotCommand, name: str | None = None) -> None:
 
 
 @bot_command(Group.GUEST)
-async def iamgod(cmd: BotCommand) -> None:
+async def cmd_iamgod(cmd: BotCommand) -> None:
     """
     registers self as the super admin
     """
@@ -182,7 +182,7 @@ async def iamgod(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def kick(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
+async def cmd_kick(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
     """
     <player> [<reason>] - kick a player
     """
@@ -195,7 +195,7 @@ async def kick(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def lastbans(cmd: BotCommand) -> None:
+async def cmd_lastbans(cmd: BotCommand) -> None:
     """
     lists the 5 last bans
     """
@@ -204,7 +204,7 @@ async def lastbans(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.GUEST, alias="lt")
-async def leveltest(cmd: BotCommand, pid: str | None = None) -> None:
+async def cmd_leveltest(cmd: BotCommand, pid: str | None = None) -> None:
     """
     [<player>] - display a user's status
     """
@@ -225,7 +225,7 @@ async def cmd_list(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.GUEST, alias="l")
-async def lookup(cmd: BotCommand, pid: str) -> None:
+async def cmd_lookup(cmd: BotCommand, pid: str) -> None:
     """
     <player> - lookup a player in the database
     """
@@ -243,7 +243,7 @@ async def cmd_map(cmd: BotCommand, map_name: str) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def map_restart(cmd: BotCommand) -> None:
+async def cmd_maprestart(cmd: BotCommand) -> None:
     """
     restarts the current map
     """
@@ -251,7 +251,7 @@ async def map_restart(cmd: BotCommand) -> None:
 
 
 @bot_command(level=Group.MODERATOR)
-async def maps(cmd: BotCommand) -> None:
+async def cmd_maps(cmd: BotCommand) -> None:
     """
     returns the list of all maps on the server
     """
@@ -265,12 +265,12 @@ async def maps(cmd: BotCommand) -> None:
 
 
 @bot_command(level=Group.MODERATOR)
-async def maps_reload(cmd: BotCommand) -> None:
+async def cmd_mapsreload(cmd: BotCommand) -> None:
     """
     reloads the maps cache
     """
     await _map_list_reload(cmd)
-    await maps(cmd)
+    await cmd_maps(cmd)
 
 
 async def _map_list_reload(cmd: BotCommand) -> list[str]:
@@ -279,7 +279,7 @@ async def _map_list_reload(cmd: BotCommand) -> list[str]:
 
 
 @bot_command(level=Group.ADMIN)
-async def moon(cmd: BotCommand, toggle: str) -> None:
+async def cmd_moon(cmd: BotCommand, toggle: str) -> None:
     """
     <on|off> - sets moon mode
     """
@@ -290,7 +290,7 @@ async def moon(cmd: BotCommand, toggle: str) -> None:
 
 
 @bot_command(level=Group.MODERATOR)
-async def mute(cmd: BotCommand, pid: str, duration: str | None = None) -> None:
+async def cmd_mute(cmd: BotCommand, pid: str, duration: str | None = None) -> None:
     """
     <player> [<duration>] - mutes a player
     """
@@ -303,7 +303,7 @@ async def mute(cmd: BotCommand, pid: str, duration: str | None = None) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def nuke(cmd: BotCommand, pid: str) -> None:
+async def cmd_nuke(cmd: BotCommand, pid: str) -> None:
     """
     <player> - nukes a player
     """
@@ -312,7 +312,7 @@ async def nuke(cmd: BotCommand, pid: str) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def permban(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
+async def cmd_permban(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
     """
     <player> [<reason>] - ban a player permanently
     """
@@ -329,7 +329,7 @@ async def permban(cmd: BotCommand, pid: str, reason: str | None = None) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def putgroup(cmd: BotCommand, pid: str, group_name: str) -> None:
+async def cmd_putgroup(cmd: BotCommand, pid: str, group_name: str) -> None:
     """
     <player> <group> - adds a player to a group
     """
@@ -338,7 +338,7 @@ async def putgroup(cmd: BotCommand, pid: str, group_name: str) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def reload(cmd: BotCommand) -> None:
+async def cmd_reload(cmd: BotCommand) -> None:
     """
     reloads the current map
     """
@@ -346,7 +346,7 @@ async def reload(cmd: BotCommand) -> None:
 
 
 @bot_command(level=Group.MODERATOR)
-async def seen(cmd: BotCommand, pid: str) -> None:
+async def cmd_seen(cmd: BotCommand, pid: str) -> None:
     """
     <player> - displays the time the player was last seen
     """
@@ -355,7 +355,7 @@ async def seen(cmd: BotCommand, pid: str) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def setnextmap(cmd: BotCommand, map_name: str) -> None:
+async def cmd_setnextmap(cmd: BotCommand, map_name: str) -> None:
     """
     <map name> - set the next map to be played
     """
@@ -364,7 +364,7 @@ async def setnextmap(cmd: BotCommand, map_name: str) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def shuffleteams(cmd: BotCommand) -> None:
+async def cmd_shuffleteams(cmd: BotCommand) -> None:
     """
     shuffle teams
     """
@@ -372,7 +372,7 @@ async def shuffleteams(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.ADMIN, alias="sk")
-async def skuffle(cmd: BotCommand) -> None:
+async def cmd_skuffle(cmd: BotCommand) -> None:
     """
     shuffle all players to create balanced teams by numbers and skill
     """
@@ -381,7 +381,7 @@ async def skuffle(cmd: BotCommand) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def slap(cmd: BotCommand, pid: str, amount: str = "1") -> None:
+async def cmd_slap(cmd: BotCommand, pid: str, amount: str = "1") -> None:
     """
     <player> [<amount>] - slaps a player
     """
@@ -398,7 +398,7 @@ async def slap(cmd: BotCommand, pid: str, amount: str = "1") -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def swap(cmd: BotCommand, pid1: str, pid2: str | None = None) -> None:
+async def cmd_swap(cmd: BotCommand, pid1: str, pid2: str | None = None) -> None:
     """
     <player1> [player2] - swap players to opposite teams, if player2 is not given,
     the admin using the command is swapped with player1
@@ -408,7 +408,7 @@ async def swap(cmd: BotCommand, pid1: str, pid2: str | None = None) -> None:
 
 
 @bot_command(level=Group.ADMIN)
-async def swapteams(cmd: BotCommand) -> None:
+async def cmd_swapteams(cmd: BotCommand) -> None:
     """
     swaps current teams
     """
@@ -416,7 +416,7 @@ async def swapteams(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.USER)
-async def teams(cmd: BotCommand) -> None:
+async def cmd_teams(cmd: BotCommand) -> None:
     """
     force team balancing, the player with the least time in a team will be switched
     """
@@ -425,7 +425,7 @@ async def teams(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def tempban(
+async def cmd_tempban(
     cmd: BotCommand, pid: str, duration: str, reason: str | None = None
 ) -> None:
     """
@@ -436,7 +436,7 @@ async def tempban(
 
 
 @bot_command(Group.GUEST)
-async def test(cmd: BotCommand) -> None:
+async def cmd_test(cmd: BotCommand) -> None:
     """
     just a test command, can do literally anything it may want
     """
@@ -449,7 +449,7 @@ async def test(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def timelimit(cmd: BotCommand, limit: str | None = None) -> None:
+async def cmd_timelimit(cmd: BotCommand, limit: str | None = None) -> None:
     """
     [<limit>] - if limit is given, sets the cvar else returns the current setting
     """
@@ -457,7 +457,7 @@ async def timelimit(cmd: BotCommand, limit: str | None = None) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def unban(cmd: BotCommand, pid: str) -> None:
+async def cmd_unban(cmd: BotCommand, pid: str) -> None:
     """
     <player> - un-ban a player
     """
@@ -471,7 +471,7 @@ async def unban(cmd: BotCommand, pid: str) -> None:
 
 
 @bot_command(Group.ADMIN)
-async def ungroup(cmd: BotCommand) -> None:
+async def cmd_ungroup(cmd: BotCommand) -> None:
     """
     <player> <group> - removes a player from a group
     """
@@ -480,7 +480,7 @@ async def ungroup(cmd: BotCommand) -> None:
 
 
 @bot_command(Group.MODERATOR)
-async def veto(cmd: BotCommand) -> None:
+async def cmd_veto(cmd: BotCommand) -> None:
     """
     vetoes the current running Vote
     """
