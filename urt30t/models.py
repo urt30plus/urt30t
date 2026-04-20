@@ -293,25 +293,6 @@ class BotContext:
     task_group: asyncio.TaskGroup
     commands: dict[str, BotCommandConfig]
 
-    async def sync_player(self, slot: str) -> Player:
-        if not (player := self.game.players.get(slot)):
-            raise BotError("invalid_slot", slot)
-
-        if not (player.guid and player.auth):
-            if userinfo := await self.rcon.dumpuser(slot):
-                player.guid = userinfo["cl_guid"]
-                player.auth = userinfo["authl"]
-            else:
-                logger.error("dumpuser failed for slot [%s]", slot)
-
-        if not player.db_id:
-            # TODO: await db.sync_player(player)
-            # TODO: check for bans
-            pass
-
-        logger.info("%r", player)
-        return player
-
     def find_command_config(self, cmd_name: str) -> BotCommandConfig | None:
         if not (cmd_config := self.commands.get(cmd_name)):
             for c in self.commands.values():

@@ -4,6 +4,7 @@ import logging
 
 from urt30t import (
     BotCommand,
+    BotError,
     FlagAction,
     Game,
     GameType,
@@ -58,7 +59,7 @@ async def on_startup(ctx: BotContext, event: events.BotStarted) -> None:
         score_blue=rcon_game.score_blue,
         players=new_players,
     )
-    await asyncio.gather(*[ctx.sync_player(slot) for slot in new_game.players])
+    await asyncio.gather(*[_sync_player(ctx, slot) for slot in new_game.players])
     logger.debug("Game state:\nbefore: %r\nafter: %r", old_game, ctx.game)
 
 
@@ -147,13 +148,13 @@ async def on_account_validated(ctx: BotContext, event: events.AccountValidated) 
 
 @bot_subscribe
 async def on_client_begin(ctx: BotContext, event: events.ClientBegin) -> None:
-    await ctx.sync_player(event.slot)
+    await _sync_player(ctx, event.slot)
 
 
 @bot_subscribe
 async def on_client_spawn(ctx: BotContext, event: events.ClientSpawn) -> None:
     if not (player := ctx.game.players.get(event.slot)):
-        player = await ctx.sync_player(event.slot)
+        player = await _sync_player(ctx, event.slot)
     player.alive_timer.start()
 
 
@@ -294,3 +295,23 @@ def _find_command_sounds_like(ctx: BotContext, cmd_name: str, group: Group) -> s
         result.update(x for x in more if commands_by_group[str(x)] <= group)
 
     return result
+
+
+async def _sync_player(ctx: BotContext, slot: str) -> Player:
+    if not (player := ctx.game.players.get(slot)):
+        raise BotError("invalid_slot", slot)
+
+    if not (player.guid and player.auth):
+        if userinfo := await ctx.rcon.dumpuser(slot):
+            player.guid = userinfo["cl_guid"]
+            player.auth = userinfo["authl"]
+        else:
+            logger.error("dumpuser failed for slot [%s]", slot)
+
+    if not player.db_id:
+        # TODO: await db.sync_player(player)
+        # TODO: check for bans
+        pass
+
+    logger.info("%r", player)
+    return player
