@@ -16,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "alembic>=1.18.4",
+    "prek>=0.4.0",
     "pytest>=9.0.3",
     "ty>=0.0.37",
     "watchfiles>=1.1.1",
