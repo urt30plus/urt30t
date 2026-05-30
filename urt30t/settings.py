@@ -19,7 +19,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, FilePath
 
-__version__ = "2026.05.16"
+__version__ = "2026.05.30"
 
 PACKAGE_ROOT = Path(__file__).parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
