@@ -15,7 +15,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "alembic>=1.18.4",
+    "alembic>=1.18.5",
     "prek>=0.4.5",
     "pytest>=9.1.1",
     "ty>=0.0.51",
