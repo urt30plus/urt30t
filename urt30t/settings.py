@@ -19,10 +19,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, FilePath
 
-__version__ = "2026.06.21"
-
-PACKAGE_ROOT = Path(__file__).parent
-PROJECT_ROOT = PACKAGE_ROOT.parent
+__version__ = "2026.07.25"
 
 TRUE_VALUES = frozenset(["true", "1", "yes", "on", "enable"])
 
