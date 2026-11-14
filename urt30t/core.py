@@ -107,7 +107,7 @@ def bot_command[T](
 
         sig = inspect.signature(f)
 
-        handler_name = f"{f.__module__}.{f.__qualname__}"  # ty: ignore[unresolved-attribute]
+        handler_name = f"{f.__module__}.{f.__qualname__}"  # ty: ignore[missing-attribute]
         if len(sig.parameters) == 0:
             msg = (
                 f"Command handler [{handler_name}] must have at"
@@ -148,7 +148,7 @@ def bot_command[T](
             else:
                 args_opt += 1
 
-        name = f.__name__.removeprefix("cmd_").lower()  # ty: ignore[unresolved-attribute]
+        name = f.__name__.removeprefix("cmd_").lower()  # ty: ignore[missing-attribute]
         _command_handlers[name] = BotCommandConfig(
             handler=f,
             name=name,
@@ -157,7 +157,7 @@ def bot_command[T](
             args_required=args_req,
             args_optional=args_opt,
         )
-        return f  # ty: ignore[invalid-return-type]
+        return f  # ty: ignore[invalid-explicit-return]
 
     return inner
 
